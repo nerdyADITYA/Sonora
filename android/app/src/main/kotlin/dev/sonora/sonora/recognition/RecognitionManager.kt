@@ -50,6 +50,11 @@ class RecognitionManager(context: Context) {
             )
             return
         }
+        // Online only: fail at once rather than record 10 s that can't be matched.
+        if (!Connectivity.isOnline(appContext)) {
+            onComplete(RecognitionOutcome.Failure(RecognitionErrorCodes.NETWORK_UNAVAILABLE, Connectivity.OFFLINE_MESSAGE), 0)
+            return
+        }
         if (!busy.compareAndSet(false, true)) {
             onComplete(RecognitionOutcome.Failure(RecognitionErrorCodes.BUSY, "Recognition already running."), 0)
             return

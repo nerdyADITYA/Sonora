@@ -3,6 +3,8 @@
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <!-- Sends audio fingerprints (not raw audio) to the recognition provider. -->
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Recognition is online only; skip listening while there is no connection. -->
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 
     <!-- User-started ambient listening (Phase 3). -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />

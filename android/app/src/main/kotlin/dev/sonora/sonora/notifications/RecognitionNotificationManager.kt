@@ -89,6 +89,7 @@ class RecognitionNotificationManager(private val context: Context) {
         ListeningPhase.MATCHING -> "Identifying…"
         ListeningPhase.PAUSED_BUDGET -> "Paused: daily limit of ${state.dailyBudget} reached"
         ListeningPhase.MICROPHONE_BLOCKED -> "Microphone blocked or in use"
+        ListeningPhase.OFFLINE -> "Waiting for an internet connection"
     }
 
     /** Downloads artwork once per URL. Call from a worker thread (the service's). */

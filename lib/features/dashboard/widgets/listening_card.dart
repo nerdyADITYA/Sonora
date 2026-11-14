@@ -96,6 +96,11 @@ class ListeningCard extends ConsumerWidget {
         'Daily limit of ${status.dailyBudget} checks reached. Turn off to stop the service.',
         AppColors.warning,
       ),
+      ListeningPhase.offline => (
+        'Waiting for internet',
+        'Sonora needs a connection to identify songs. The microphone stays off until you\'re back online.',
+        AppColors.warning,
+      ),
       ListeningPhase.microphoneBlocked => (
         'Microphone blocked',
         'The microphone returned silence or is in use. Check the microphone toggle in Quick Settings.',

@@ -7,7 +7,8 @@ enum ListeningPhase {
   listening,
   matching,
   pausedBudget,
-  microphoneBlocked;
+  microphoneBlocked,
+  offline;
 
   static ListeningPhase parse(Object? value) => switch (value) {
     'waiting' => waiting,
@@ -15,6 +16,7 @@ enum ListeningPhase {
     'matching' => matching,
     'paused_budget' => pausedBudget,
     'microphone_blocked' => microphoneBlocked,
+    'offline' => offline,
     _ => stopped,
   };
 }

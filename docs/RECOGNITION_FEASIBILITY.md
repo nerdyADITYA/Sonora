@@ -23,7 +23,7 @@ Source: [ACRCloudUniversalSDK](https://github.com/acrcloud/ACRCloudUniversalSDK)
 | Feeding our own audio | Low-level `recognize(buffer, bufferLen, sampleRate, nChannels)` takes 16-bit PCM. A built-in recorder also exists, with a 3 s pre-record buffer by default | ✅ Sonora keeps ownership of `AudioRecord` |
 | Fingerprinting on the device | `createClientFingerprint(...)` followed by `recognizeFingerprint(...)` sends **a fingerprint, not raw audio** | ✅ meets the privacy rules |
 | Continuous mode | No streaming session. Each recognition is a discrete request | ⚠️ Sonora schedules requests itself; cost scales with frequency |
-| Offline | A separate `offline_version` matches against a local bucket the project builds itself | ✅ candidate for Phase 6 |
+| Offline | A separate `offline_version` SDK matches only custom audio the project uploads to an offline bucket, not the ACRCloud Music catalogue; pricing is by contacting sales | ⏸ deferred (see below) |
 | Catalogue | Claims 150M+ tracks ([acrcloud.com](https://www.acrcloud.com)) | ✅ |
 | Credentials | `host`, `accessKey`, `accessSecret` per project, embedded in the client | ⚠️ see below |
 | Pricing | 14-day free trial; per-recognition pricing visible only after logging in to the console ([docs](https://docs.acrcloud.com/tutorials/recognize-music), [contact](https://www.acrcloud.com/contact)) | ⚠️ must be measured |
@@ -42,6 +42,16 @@ At one request every 30 s while listening, an 8-hour day costs about **960 reque
 - gate requests on a cheap on-device "is this music?" check (energy and spectral flatness)
 - skip requests while the same track is likely still playing (suppression after a match)
 - set a configurable daily cap, shown in Settings
+
+## Offline recognition (Phase 6, Gate C): deferred
+
+_Decided 2026-11-14._ Sonora is **online only** for now. Offline matching can only cover a catalogue stored on the phone: no provider lets an app download a full music catalogue, and ACRCloud's offline SDK covers only audio you upload yourself. The options looked at were a Shazam-style landmark fingerprint engine in Kotlin (the original patents have expired) over music files on the phone, fingerprints learned from past online matches, and ACRCloud's offline buckets. None was worth building yet.
+
+What online-only means in the app:
+
+- History stays fully available offline (it's local SQLite).
+- **Identify song** fails immediately with `NETWORK_UNAVAILABLE` without opening the microphone.
+- **Ambient listening** enters the `offline` phase: the microphone stays off, no request is counted, and it checks the connection again every 60 s.
 
 ## Repository rules
 

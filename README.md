@@ -13,6 +13,7 @@ Sonora is an open-source Android app for ambient music recognition. Once you tur
 - **History:** every recognition saved locally (SQLite), grouped by day, with search, sorting, swipe-to-delete, clear-all, and a detail page per song (cover, times heard, ISRC, Open in Spotify)
 - **Spotify:** sign in with PKCE (no client secret), pick or create a playlist, and add songs from History. Each song is added to a playlist at most once, and failed adds are retried. When Spotify is connected, Sonora uses the release Spotify usually shows, so covers match the Spotify app
 - **Match quality:** weak matches (below 50%) are rejected; 50–69% matches are re-checked by ambient listening or shown as "Possible match"
+- **Online only:** recognition needs an internet connection. Without one, Sonora doesn't open the microphone; History still works offline. Offline recognition (Phase 6) is deferred
 - Dark, One UI-inspired dashboard (Flutter + Riverpod)
 - A Flutter ↔ Kotlin bridge over `dev.sonora/control` and `dev.sonora/events` with structured responses
 

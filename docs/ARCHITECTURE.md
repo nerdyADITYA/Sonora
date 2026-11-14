@@ -70,7 +70,7 @@ Recognition error codes: `PERMISSION_REQUIRED`, `MICROPHONE_UNAVAILABLE`, `MICRO
 
 Spotify error codes: `SPOTIFY_NOT_CONFIGURED`, `SPOTIFY_NOT_CONNECTED`, `SPOTIFY_AUTH_CANCELLED`, `SPOTIFY_AUTH_FAILED`, `SPOTIFY_RATE_LIMITED`, `SPOTIFY_FORBIDDEN` (account not under User Management, or the owner lacks Premium), `SPOTIFY_TRACK_NOT_FOUND`, `SPOTIFY_NEEDS_MATCH`, `SPOTIFY_API_ERROR`; network failures use `NETWORK_UNAVAILABLE`.
 
-Listening phases (`phase`): `stopped`, `waiting`, `listening`, `matching`, `paused_budget`, `microphone_blocked`.
+Listening phases (`phase`): `stopped`, `waiting`, `listening`, `matching`, `paused_budget`, `microphone_blocked`, `offline` (no internet; microphone off).
 
 Unknown methods return Flutter's standard `notImplemented`.
 
@@ -131,6 +131,8 @@ Each cycle runs on the service's worker thread:
 
 ```
 budget left? ── no ──> paused_budget, re-check in 30 min
+   │ yes
+online? ── no ──> offline, re-check in 60 s   (microphone off, no request)
    │ yes
 probe 3 s ── digital silence ──> microphone_blocked, retry in 30 s
    │      └─ quieter than -50 dBFS ──> waiting, retry in 20 s   (no request)

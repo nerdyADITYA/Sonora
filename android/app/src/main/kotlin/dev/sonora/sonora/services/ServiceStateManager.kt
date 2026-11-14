@@ -12,6 +12,7 @@ enum class ListeningPhase(val wire: String) {
     MATCHING("matching"),
     PAUSED_BUDGET("paused_budget"), // Daily request budget used up.
     MICROPHONE_BLOCKED("microphone_blocked"), // Silence: privacy toggle or mic busy.
+    OFFLINE("offline"), // No internet; microphone off, no requests counted.
 }
 
 /**

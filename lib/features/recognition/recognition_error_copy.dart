@@ -7,7 +7,7 @@ String? recognitionErrorDetail(String? code) => switch (code) {
     'Enable it in Settings › Apps › Sonora › Permissions › Microphone.',
   'MICROPHONE_SILENT' => 'The microphone returned silence. Check that microphone access is on in Quick Settings.',
   'MICROPHONE_UNAVAILABLE' => 'The microphone is busy or unavailable. Close any app using it and try again.',
-  'NETWORK_UNAVAILABLE' => "Couldn't reach ACRCloud. Check your connection.",
+  'NETWORK_UNAVAILABLE' => "Couldn't reach ACRCloud. Sonora needs an internet connection to identify songs.",
   'INVALID_CREDENTIALS' =>
     'ACRCloud rejected the credentials. Check android/local.properties.',
   'NOT_CONFIGURED' =>

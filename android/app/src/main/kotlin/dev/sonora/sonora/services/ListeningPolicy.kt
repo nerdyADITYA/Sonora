@@ -33,6 +33,9 @@ object ListeningPolicy {
     const val SONG_END_MARGIN_MS = 5_000L
 
     /** A 50–69 score match is re-checked this soon; a second agreeing sample confirms it. */
+    /** How often to check for a connection again while offline. */
+    const val OFFLINE_RECHECK_MS = 60_000L
+
     const val CONFIRM_DELAY_MS = 20_000L
 
     /** An unconfirmed match expires if no agreeing sample arrives within this time. */

@@ -184,6 +184,22 @@ void main() {
     expect(find.text('Paused for today'), findsOneWidget);
   });
 
+  testWidgets('listening without internet says so', (tester) async {
+    final platform = FakePlatform();
+    await pumpSonora(tester, platform);
+
+    platform.emit('listening_status', {
+      'listening': true,
+      'available': true,
+      'phase': 'offline',
+      'requestsToday': 3,
+      'dailyBudget': 200,
+    });
+    await tester.pumpAndSettle();
+
+    expect(find.text('Waiting for internet'), findsOneWidget);
+  });
+
   testWidgets('a low-confidence manual match is flagged as possible', (
     tester,
   ) async {
