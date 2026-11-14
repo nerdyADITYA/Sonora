@@ -1,8 +1,6 @@
 package dev.sonora.sonora.services
 
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
-import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class ListeningPolicyTest {
@@ -41,12 +39,4 @@ class ListeningPolicyTest {
         assertEquals(ListeningPolicy.AFTER_MATCH_DEFAULT_DELAY_MS, ListeningPolicy.delayAfterMatch(200_000, null))
     }
 
-    @Test
-    fun `same track within the window is a duplicate`() {
-        val t = 1_000_000L
-        assertTrue(ListeningPolicy.isDuplicate("a", t, "a", t + 60_000))
-        assertFalse(ListeningPolicy.isDuplicate("a", t, "b", t + 60_000))
-        assertFalse(ListeningPolicy.isDuplicate("a", t, "a", t + ListeningPolicy.DUPLICATE_WINDOW_MS))
-        assertFalse(ListeningPolicy.isDuplicate(null, null, "a", t))
-    }
 }

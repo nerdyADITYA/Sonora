@@ -43,6 +43,7 @@ android {
         targetSdk = 36
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         buildConfigField("String", "ACRCLOUD_HOST", "\"${localProperty("acrcloud.host")}\"")
         buildConfigField("String", "ACRCLOUD_ACCESS_KEY", "\"${localProperty("acrcloud.accessKey")}\"")
@@ -68,6 +69,8 @@ dependencies {
     if (hasAcrCloudSdk) implementation(acrCloudSdkJars)
 
     testImplementation("junit:junit:4.13.2")
+    androidTestImplementation("androidx.test:runner:1.7.0")
+    androidTestImplementation("androidx.test.ext:junit:1.3.0")
 }
 
 kotlin {

@@ -4,11 +4,14 @@ import android.content.Context
 import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
+import android.util.Log
 import dev.sonora.sonora.audio.AudioCaptureException
 import dev.sonora.sonora.audio.AudioCaptureManager
 import dev.sonora.sonora.audio.AudioConfiguration
 import dev.sonora.sonora.bridge.BridgeContract
 import dev.sonora.sonora.bridge.SonoraEvents
+import dev.sonora.sonora.database.HistoryRepository
+import dev.sonora.sonora.database.RecognitionSource
 import dev.sonora.sonora.services.ServiceStateManager
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicBoolean
@@ -28,6 +31,7 @@ class RecognitionManager(context: Context) {
     private val worker = Executors.newSingleThreadExecutor { Thread(it, "sonora-recognition") }
     private val mainHandler = Handler(Looper.getMainLooper())
     private val busy = AtomicBoolean(false)
+    private val history = HistoryRepository.get(appContext)
 
     val hasMicrophonePermission: Boolean get() = audio.hasPermission()
 
@@ -74,10 +78,22 @@ class RecognitionManager(context: Context) {
         }
     }
 
-    private fun withArtwork(match: RecognitionOutcome.Match) =
-        RecognitionOutcome.Match(ArtworkResolver.enrich(match.song))
+    /** Adds artwork and saves the match to history (manual matches are never suppressed). */
+    private fun withArtwork(match: RecognitionOutcome.Match): RecognitionOutcome.Match {
+        val song = ArtworkResolver.enrich(match.song)
+        try {
+            history.record(song, RecognitionSource.MANUAL)
+        } catch (e: Exception) {
+            Log.e(TAG, "Could not save recognition", e)
+        }
+        return RecognitionOutcome.Match(song)
+    }
 
     fun cancel() = audio.cancel()
+
+    private companion object {
+        const val TAG = "RecognitionManager"
+    }
 
     fun release() {
         audio.cancel()

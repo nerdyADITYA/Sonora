@@ -13,6 +13,7 @@ import android.os.Build
 import android.util.Log
 import dev.sonora.sonora.MainActivity
 import dev.sonora.sonora.R
+import dev.sonora.sonora.recognition.SpotifyLinks
 import dev.sonora.sonora.services.ListeningPhase
 import dev.sonora.sonora.services.ServiceStateManager
 import dev.sonora.sonora.services.SonoraRecognitionService
@@ -62,8 +63,11 @@ class RecognitionNotificationManager(private val context: Context) {
                 .setContentText(song.artist)
                 .setSubText(status)
                 .setLargeIcon(artworkFor(song.artworkUrl))
-            song.spotifyTrackId?.let { id ->
-                builder.addAction(Notification.Action.Builder(null, "Open in Spotify", spotifyIntent(id)).build())
+            // Shown only for songs ACRCloud matched to Spotify, so the search finds it.
+            if (song.spotifyTrackId != null) {
+                builder.addAction(
+                    Notification.Action.Builder(null, "Open in Spotify", spotifyIntent(song.title, song.artist)).build(),
+                )
             }
         }
         return builder.build()
@@ -134,10 +138,10 @@ class RecognitionNotificationManager(private val context: Context) {
         PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
     )
 
-    private fun spotifyIntent(trackId: String): PendingIntent = PendingIntent.getActivity(
+    private fun spotifyIntent(title: String, artist: String): PendingIntent = PendingIntent.getActivity(
         context,
         2,
-        Intent(Intent.ACTION_VIEW, Uri.parse("https://open.spotify.com/track/$trackId"))
+        Intent(Intent.ACTION_VIEW, Uri.parse(SpotifyLinks.view(title, artist)))
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
         PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
     )

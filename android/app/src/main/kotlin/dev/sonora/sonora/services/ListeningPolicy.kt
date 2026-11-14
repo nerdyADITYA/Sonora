@@ -32,7 +32,7 @@ object ListeningPolicy {
     const val AFTER_MATCH_DEFAULT_DELAY_MS = 120_000L
     const val SONG_END_MARGIN_MS = 5_000L
 
-    /** Same track again within this window is not re-announced. */
+    /** Same track again within this window is not re-announced or re-saved (checked in the database). */
     const val DUPLICATE_WINDOW_MS = 15 * 60_000L
 
     /** 30 s, 60 s, 120 s, 120 s, ... */
@@ -48,7 +48,4 @@ object ListeningPolicy {
         val remaining = durationMs.toLong() - playOffsetMs - captureMs + SONG_END_MARGIN_MS
         return remaining.coerceIn(AFTER_MATCH_MIN_DELAY_MS, AFTER_MATCH_MAX_DELAY_MS)
     }
-
-    fun isDuplicate(previousId: String?, previousAt: Long?, id: String, now: Long): Boolean =
-        previousId != null && previousAt != null && previousId == id && now - previousAt < DUPLICATE_WINDOW_MS
 }

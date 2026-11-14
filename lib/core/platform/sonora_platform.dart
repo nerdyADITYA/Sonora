@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../constants/channel_names.dart';
 import '../errors/platform_failure.dart';
 import '../models/bridge_response.dart';
+import '../models/history.dart';
 import '../models/listening_status.dart';
 import '../models/platform_info.dart';
 import '../models/recognized_song.dart';
@@ -50,6 +51,43 @@ class SonoraPlatform {
 
   Future<void> stopListening() async {
     await _invoke(BridgeMethods.stopListening);
+  }
+
+  Future<HistoryPage> getRecognitionHistory({
+    String? query,
+    HistorySort sort = HistorySort.newest,
+    int limit = 200,
+  }) async => HistoryPage.fromMap(
+    await _invoke(BridgeMethods.getRecognitionHistory, {
+      'query': query,
+      'sort': sort.wire,
+      'limit': limit,
+    }),
+  );
+
+  /// Throws [PlatformFailure] with code `NOT_FOUND` if the song was deleted.
+  Future<SongDetail> getSongDetail(int songId) async => SongDetail.fromMap(
+    await _invoke(BridgeMethods.getSongDetail, {'songId': songId}),
+  );
+
+  Future<void> deleteRecognition(int eventId) async {
+    await _invoke(BridgeMethods.deleteRecognition, {'eventId': eventId});
+  }
+
+  Future<void> deleteSong(int songId) async {
+    await _invoke(BridgeMethods.deleteSong, {'songId': songId});
+  }
+
+  Future<void> clearRecognitionHistory() async {
+    await _invoke(BridgeMethods.clearRecognitionHistory);
+  }
+
+  /// Shows [song] in Spotify's search (or the browser) without starting playback.
+  Future<void> openInSpotify(RecognizedSong song) async {
+    await _invoke(BridgeMethods.openInSpotify, {
+      'title': song.title,
+      'artist': song.artist,
+    });
   }
 
   /// Broadcast stream of native events; safe to listen to more than once.

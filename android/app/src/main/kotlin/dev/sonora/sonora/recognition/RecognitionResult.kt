@@ -11,6 +11,8 @@ data class RecognizedSong(
     val durationMs: Int?,
     val isrc: String?,
     val spotifyTrackId: String?,
+    /** Stored for later Spotify features. Not used for links: it can point to a compilation. */
+    val spotifyAlbumId: String? = null,
     val artworkUrl: String?,
     /** 0.0–1.0, where the provider reports one. */
     val confidence: Double?,
@@ -28,6 +30,7 @@ data class RecognizedSong(
         "durationMs" to durationMs,
         "isrc" to isrc,
         "spotifyTrackId" to spotifyTrackId,
+        "spotifyAlbumId" to spotifyAlbumId,
         "artworkUrl" to artworkUrl,
         "confidence" to confidence,
         "playOffsetMs" to playOffsetMs,

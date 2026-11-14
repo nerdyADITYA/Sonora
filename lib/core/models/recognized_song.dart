@@ -11,6 +11,7 @@ class RecognizedSong {
     this.durationMs,
     this.isrc,
     this.spotifyTrackId,
+    this.spotifyAlbumId,
     this.artworkUrl,
     this.confidence,
   });
@@ -25,6 +26,7 @@ class RecognizedSong {
     durationMs: (map['durationMs'] as num?)?.toInt(),
     isrc: map['isrc'] as String?,
     spotifyTrackId: map['spotifyTrackId'] as String?,
+    spotifyAlbumId: map['spotifyAlbumId'] as String?,
     artworkUrl: map['artworkUrl'] as String?,
     confidence: (map['confidence'] as num?)?.toDouble(),
     recognizedAt: DateTime.fromMillisecondsSinceEpoch(
@@ -41,6 +43,9 @@ class RecognizedSong {
   final int? durationMs;
   final String? isrc;
   final String? spotifyTrackId;
+
+  /// Lets "Open in Spotify" show the album with the track highlighted instead of autoplaying.
+  final String? spotifyAlbumId;
   final String? artworkUrl;
 
   /// 0.0–1.0 where the provider reports it.

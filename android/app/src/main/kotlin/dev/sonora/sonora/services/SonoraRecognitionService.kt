@@ -14,12 +14,15 @@ import dev.sonora.sonora.audio.AudioCaptureException
 import dev.sonora.sonora.audio.AudioCaptureManager
 import dev.sonora.sonora.audio.AudioConfiguration
 import dev.sonora.sonora.audio.GatedCapture
+import dev.sonora.sonora.database.HistoryRepository
+import dev.sonora.sonora.database.RecognitionSource
 import dev.sonora.sonora.notifications.RecognitionNotificationManager
 import dev.sonora.sonora.recognition.ArtworkResolver
 import dev.sonora.sonora.recognition.RecognitionEngine
 import dev.sonora.sonora.recognition.RecognitionEngineFactory
 import dev.sonora.sonora.recognition.RecognitionErrorCodes
 import dev.sonora.sonora.recognition.RecognitionOutcome
+import dev.sonora.sonora.recognition.RecognizedSong
 
 /**
  * User-started ambient listening, as a microphone foreground service.
@@ -38,6 +41,7 @@ class SonoraRecognitionService : Service() {
     private lateinit var audio: AudioCaptureManager
     private lateinit var engine: RecognitionEngine
     private lateinit var budget: RequestBudget
+    private lateinit var history: HistoryRepository
     private lateinit var notifications: RecognitionNotificationManager
     private lateinit var workerThread: HandlerThread
     private lateinit var worker: Handler
@@ -46,8 +50,6 @@ class SonoraRecognitionService : Service() {
     @Volatile
     private var running = false
     private var consecutiveNoMatches = 0
-    private var lastAnnouncedId: String? = null
-    private var lastAnnouncedAt: Long? = null
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -56,6 +58,7 @@ class SonoraRecognitionService : Service() {
         audio = AudioCaptureManager(this)
         engine = RecognitionEngineFactory.create(this)
         budget = RequestBudget(this)
+        history = HistoryRepository.get(this)
         notifications = RecognitionNotificationManager(this)
         workerThread = HandlerThread("sonora-listening").also { it.start() }
         worker = Handler(workerThread.looper)
@@ -181,12 +184,7 @@ class SonoraRecognitionService : Service() {
             is RecognitionOutcome.Match -> {
                 consecutiveNoMatches = 0
                 val song = outcome.song
-                val now = System.currentTimeMillis()
-                if (!ListeningPolicy.isDuplicate(lastAnnouncedId, lastAnnouncedAt, song.providerId, now)) {
-                    lastAnnouncedId = song.providerId
-                    lastAnnouncedAt = now
-                    ServiceStateManager.announceSong(ArtworkResolver.enrich(song))
-                }
+                saveAndAnnounce(song)
                 schedule(ListeningPolicy.delayAfterMatch(song.durationMs, song.playOffsetMs))
             }
             RecognitionOutcome.NoMatch -> {
@@ -205,6 +203,30 @@ class SonoraRecognitionService : Service() {
                 else -> schedule(ListeningPolicy.ERROR_DELAY_MS, ListeningPhase.WAITING, outcome.code)
             }
         }
+    }
+
+    /**
+     * Saves the match unless the same song was saved within the duplicate
+     * window (checked in the database, so it survives restarts), then
+     * announces it. Artwork is fetched only for songs that don't have it yet.
+     */
+    private fun saveAndAnnounce(song: RecognizedSong) {
+        val recorded = try {
+            history.record(song, RecognitionSource.AMBIENT, ListeningPolicy.DUPLICATE_WINDOW_MS)
+        } catch (e: Exception) {
+            Log.e(TAG, "Could not save recognition", e)
+            null
+        }
+        if (recorded?.duplicate == true) return
+
+        val withArtwork = recorded?.storedArtworkUrl?.let { song.copy(artworkUrl = it) }
+            ?: ArtworkResolver.enrich(song).also { enriched ->
+                val url = enriched.artworkUrl
+                if (recorded != null && url != null) {
+                    runCatching { history.updateArtwork(recorded.songId, url) }
+                }
+            }
+        ServiceStateManager.announceSong(withArtwork)
     }
 
     private fun schedule(delayMs: Long, phase: ListeningPhase = ListeningPhase.WAITING, error: String? = null) {

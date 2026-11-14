@@ -1,6 +1,6 @@
 import 'package:material_ui/material_ui.dart';
 
-import '../features/dashboard/screens/dashboard_screen.dart';
+import 'home_shell.dart';
 import 'theme/app_theme.dart';
 
 class SonoraApp extends StatelessWidget {
@@ -14,7 +14,7 @@ class SonoraApp extends StatelessWidget {
       theme: AppTheme.dark(),
       darkTheme: AppTheme.dark(),
       themeMode: ThemeMode.dark,
-      home: const DashboardScreen(),
+      home: const HomeShell(),
     );
   }
 }

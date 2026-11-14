@@ -1,85 +1,10 @@
-import 'dart:async';
-
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
-import 'package:sonora/app/sonora_app.dart';
 import 'package:sonora/core/errors/platform_failure.dart';
-import 'package:sonora/core/models/listening_status.dart';
-import 'package:sonora/core/models/platform_info.dart';
 import 'package:sonora/core/models/recognized_song.dart';
-import 'package:sonora/core/models/sonora_event.dart';
-import 'package:sonora/core/platform/sonora_platform.dart';
 
-class _FakePlatform extends SonoraPlatform {
-  _FakePlatform({
-    this.failInfo = false,
-    this.permission = MicrophonePermission.granted,
-    this.attempt,
-    this.recognitionFailure,
-  });
-
-  final bool failInfo;
-  final MicrophonePermission permission;
-  final RecognitionAttempt? attempt;
-  final PlatformFailure? recognitionFailure;
-
-  @override
-  Future<PlatformInfo> getPlatformInfo() async {
-    if (failInfo) throw const PlatformFailure.unavailable();
-    return const PlatformInfo(
-      manufacturer: 'samsung',
-      brand: 'samsung',
-      model: 'SM-S928B',
-      device: 'e3q',
-      androidVersion: '17',
-      sdkInt: 37,
-      securityPatch: '2026-11-01',
-      isSamsung: true,
-      appVersion: '0.1.0',
-    );
-  }
-
-  final _events = StreamController<SonoraEvent>.broadcast();
-  ListeningStatus _status = ListeningStatus.stopped;
-
-  void emit(String type, Map<String, Object?> data) => _events.add(
-    SonoraEvent(type: type, timestamp: DateTime(2026), data: data),
-  );
-
-  @override
-  Future<ListeningStatus> getListeningStatus() async => _status;
-
-  @override
-  Future<ListeningStatus> startListening() async => _status = ListeningStatus(
-    listening: true,
-    available: true,
-    phase: ListeningPhase.waiting,
-    nextCheckAt: DateTime(2026, 11, 14, 18, 30),
-    requestsToday: 3,
-    dailyBudget: 200,
-  );
-
-  @override
-  Future<void> stopListening() async => _status = ListeningStatus.stopped;
-
-  @override
-  Future<MicrophonePermission> requestMicrophonePermission() async =>
-      permission;
-
-  @override
-  Future<RecognitionAttempt> recognizeOnce() async {
-    if (recognitionFailure != null) throw recognitionFailure!;
-    return attempt ??
-        const RecognitionAttempt(song: null, elapsed: Duration(seconds: 10));
-  }
-
-  @override
-  Stream<SonoraEvent> get events async* {
-    yield SonoraEvent(type: 'bridge_connected', timestamp: DateTime(2026));
-    yield* _events.stream;
-  }
-}
+import '../support/fake_platform.dart';
+import '../support/pump.dart';
 
 final _song = RecognizedSong(
   provider: 'acrcloud',
@@ -91,22 +16,6 @@ final _song = RecognizedSong(
   recognizedAt: DateTime(2026, 11, 14),
 );
 
-Future<void> _pump(WidgetTester tester, SonoraPlatform platform) async {
-  // Tall surface so every dashboard card is built.
-  tester.view.physicalSize = const Size(1080, 3200);
-  tester.view.devicePixelRatio = 1.0;
-  addTearDown(tester.view.reset);
-
-  await tester.pumpWidget(
-    ProviderScope(
-      retry: (_, _) => null,
-      overrides: [sonoraPlatformProvider.overrideWithValue(platform)],
-      child: const SonoraApp(),
-    ),
-  );
-  await tester.pumpAndSettle();
-}
-
 Future<void> _tapIdentify(WidgetTester tester) async {
   await tester.tap(find.text('Identify song'));
   await tester.pumpAndSettle();
@@ -116,7 +25,7 @@ void main() {
   testWidgets('dashboard shows bridge data and an honest listening state', (
     tester,
   ) async {
-    await _pump(tester, _FakePlatform());
+    await pumpSonora(tester, FakePlatform());
 
     expect(find.text('Sonora'), findsWidgets);
     expect(find.text('Not listening'), findsOneWidget);
@@ -133,7 +42,7 @@ void main() {
   testWidgets(
     'dashboard shows the failure code when the bridge is unavailable',
     (tester) async {
-      await _pump(tester, _FakePlatform(failInfo: true));
+      await pumpSonora(tester, FakePlatform(failInfo: true));
 
       expect(find.text(PlatformFailure.bridgeUnavailable), findsOneWidget);
     },
@@ -142,9 +51,9 @@ void main() {
   testWidgets('identifying a song shows it as the last discovery', (
     tester,
   ) async {
-    await _pump(
+    await pumpSonora(
       tester,
-      _FakePlatform(
+      FakePlatform(
         attempt: RecognitionAttempt(
           song: _song,
           elapsed: const Duration(milliseconds: 11200),
@@ -164,7 +73,7 @@ void main() {
   testWidgets('a no-match keeps the empty state and suggests retrying', (
     tester,
   ) async {
-    await _pump(tester, _FakePlatform());
+    await pumpSonora(tester, FakePlatform());
 
     await _tapIdentify(tester);
 
@@ -175,9 +84,9 @@ void main() {
   testWidgets('a permanently denied microphone points to Settings', (
     tester,
   ) async {
-    await _pump(
+    await pumpSonora(
       tester,
-      _FakePlatform(permission: MicrophonePermission.permanentlyDenied),
+      FakePlatform(permission: MicrophonePermission.permanentlyDenied),
     );
 
     await _tapIdentify(tester);
@@ -187,9 +96,9 @@ void main() {
   });
 
   testWidgets('provider errors are explained from their code', (tester) async {
-    await _pump(
+    await pumpSonora(
       tester,
-      _FakePlatform(
+      FakePlatform(
         recognitionFailure: const PlatformFailure(
           'NETWORK_UNAVAILABLE',
           'status 3000',
@@ -206,7 +115,7 @@ void main() {
   testWidgets('turning listening on shows live status and pauses Identify', (
     tester,
   ) async {
-    await _pump(tester, _FakePlatform());
+    await pumpSonora(tester, FakePlatform());
 
     await tester.tap(find.byType(Switch));
     await tester.pumpAndSettle();
@@ -225,7 +134,10 @@ void main() {
   testWidgets('a denied microphone keeps listening off and explains why', (
     tester,
   ) async {
-    await _pump(tester, _FakePlatform(permission: MicrophonePermission.denied));
+    await pumpSonora(
+      tester,
+      FakePlatform(permission: MicrophonePermission.denied),
+    );
 
     await tester.tap(find.byType(Switch));
     await tester.pumpAndSettle();
@@ -237,8 +149,8 @@ void main() {
   testWidgets('songs found by ambient listening become the last discovery', (
     tester,
   ) async {
-    final platform = _FakePlatform();
-    await _pump(tester, platform);
+    final platform = FakePlatform();
+    await pumpSonora(tester, platform);
 
     platform.emit('song_recognized', {
       'provider': 'acrcloud',
@@ -257,8 +169,8 @@ void main() {
   testWidgets('a background status event updates the listening card', (
     tester,
   ) async {
-    final platform = _FakePlatform();
-    await _pump(tester, platform);
+    final platform = FakePlatform();
+    await pumpSonora(tester, platform);
 
     platform.emit('listening_status', {
       'listening': true,

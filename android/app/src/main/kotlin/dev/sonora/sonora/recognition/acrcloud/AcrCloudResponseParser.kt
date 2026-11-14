@@ -60,6 +60,7 @@ object AcrCloudResponseParser {
 
         val spotify = best.optJSONObject("external_metadata")?.optJSONObject("spotify")
         val spotifyTrackId = spotify?.optJSONObject("track")?.optStringOrNull("id")
+        val spotifyAlbumId = spotify?.optJSONObject("album")?.optStringOrNull("id")
 
         return RecognitionOutcome.Match(
             RecognizedSong(
@@ -72,6 +73,7 @@ object AcrCloudResponseParser {
                 durationMs = best.optInt("duration_ms", 0).takeIf { it > 0 },
                 isrc = best.optJSONObject("external_ids")?.optStringOrNull("isrc"),
                 spotifyTrackId = spotifyTrackId,
+                spotifyAlbumId = spotifyAlbumId,
                 // The identify response has no cover art; ArtworkResolver fills this in.
                 artworkUrl = null,
                 confidence = best.optInt("score", -1).takeIf { it >= 0 }?.let { it / 100.0 },

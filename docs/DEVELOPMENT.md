@@ -63,3 +63,18 @@ flutter analyze
 flutter test
 flutter build apk --debug
 ```
+
+Kotlin JVM unit tests (policy, audio levels, song keys), run from `android/`:
+
+```bash
+gradlew :app:testDebugUnitTest
+```
+
+Database instrumentation tests run on a connected phone. Gradle's `connectedDebugAndroidTest` uninstalls the app afterwards, which wipes permissions and history, so install and run them directly:
+
+```bash
+gradlew :app:assembleDebugAndroidTest
+adb install -r build/app/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+adb shell am instrument -w dev.sonora.sonora.test/androidx.test.runner.AndroidJUnitRunner
+adb uninstall dev.sonora.sonora.test
+```

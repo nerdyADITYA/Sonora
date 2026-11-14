@@ -42,7 +42,15 @@ Error codes: `NOT_IMPLEMENTED`, `INVALID_ARGUMENT`, `INTERNAL_ERROR` (native), p
 | `stopListening` | v0.3.0 | none; stops the service and releases the microphone |
 | `recognizeOnce` | v0.2.0 | `matched: bool, song: RecognizedSong?, elapsedMs: int`. Captures about 10 s in the foreground, fingerprints it on the device, and matches it with ACRCloud |
 | `cancelRecognition` | v0.2.0 | none; the pending `recognizeOnce` fails with `CANCELLED` |
-| `getRecognitionHistory`, `clearRecognitionHistory`, `getRecognitionSettings`, `updateRecognitionSettings` | planned | currently return `NOT_IMPLEMENTED` |
+| `getRecognitionHistory` | v0.4.0 | args `query?`, `sort` (`newest`/`oldest`/`title`/`artist`), `limit` (≤500), `offset`. Returns `entries: HistoryEntry[]`, `total` |
+| `getSongDetail` | v0.4.0 | args `songId`. Returns `songId, song, firstHeardAt, timesHeard, recognitions: HistoryEntry[]`; `NOT_FOUND` if deleted |
+| `deleteRecognition` | v0.4.0 | args `eventId`; the song is removed too when it has no recognitions left |
+| `deleteSong` | v0.4.0 | args `songId`; removes the song and all its recognitions |
+| `clearRecognitionHistory` | v0.4.0 | deletes all history |
+| `openInSpotify` | v0.4.0 | args `title`, `artist`. Opens `open.spotify.com/search/<title artist>`, which shows the song in the Spotify app (or the browser) **without playing it**. Track and album links autoplay, and ACRCloud's album ID can be a compilation |
+| `getRecognitionSettings`, `updateRecognitionSettings` | planned | currently return `NOT_IMPLEMENTED` |
+
+`HistoryEntry`: `eventId, songId, source ("manual" | "ambient"), recognizedAt, song: RecognizedSong`.
 
 `RecognizedSong`: `provider, providerId, title, artist, album?, releaseDate?, durationMs?, isrc?, spotifyTrackId?, artworkUrl?, confidence? (0–1), recognizedAt (epoch ms)`.
 
@@ -62,6 +70,7 @@ Envelope: `{ "type": String, "timestamp": epochMillis, "data": Map? }`
 | `recognition_capturing` | v0.2.0 | the microphone starts capturing for `recognizeOnce` |
 | `recognition_matching` | v0.2.0 | capture is done and the fingerprint is being matched |
 | `listening_status` | v0.3.0 | the service's state changes. `data` is the same map as `getListeningStatus` |
+| `history_changed` | v0.4.0 | history was added to, edited or deleted; lists reload |
 | `song_recognized` | v0.3.0 | ambient listening found a new song (duplicates are suppressed). `data` is a `RecognizedSong` |
 
 ## Recognition (native)
@@ -73,6 +82,17 @@ RecognitionManager ── AudioCaptureManager (AudioRecord, 44.1 kHz PCM16 mono,
                 ├── AcrCloudRecognitionEngine   (src/acrcloud/kotlin, compiled when the SDK JAR is present)
                 └── stub engine                 (src/noAcrcloud/kotlin, returns PROVIDER_UNAVAILABLE)
 ```
+
+## History (Phase 4)
+
+`HistoryRepository` (Kotlin) owns a plain SQLite database, `sonora.db`, through `SQLiteOpenHelper`. Room was considered but not used: it would add the KSP processor and three dependencies that must track AGP 9 and Kotlin versions, which isn't worth it for two tables. Migrations go in `SonoraDatabase.onUpgrade`.
+
+| Table | Purpose |
+|---|---|
+| `songs` | One row per distinct song. `song_key` is unique: provider track ID, else ISRC, else normalised title and artist (`SongKeys`). Later matches fill in missing metadata but never blank out known fields |
+| `recognition_events` | One row per recognition: `recognized_at`, `provider`, `confidence`, `recognition_mode` (`online`), `source` (`manual` / `ambient`). Deleting a song cascades here |
+
+Ambient matches are saved with a 15-minute suppression window checked in the database, so a song still playing after an app restart isn't saved or announced twice. Manual matches are always saved. Artwork is looked up once per song and stored. `songs.spotify_album_id` (schema v2) is stored for later Spotify features. Flutter reads history only through the bridge, and the native side emits `history_changed` after every write.
 
 ## Ambient listening (Phase 3)
 

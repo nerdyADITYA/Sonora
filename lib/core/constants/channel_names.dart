@@ -14,6 +14,12 @@ abstract final class BridgeMethods {
   static const cancelRecognition = 'cancelRecognition';
   static const startListening = 'startListening';
   static const stopListening = 'stopListening';
+  static const getRecognitionHistory = 'getRecognitionHistory';
+  static const getSongDetail = 'getSongDetail';
+  static const deleteRecognition = 'deleteRecognition';
+  static const deleteSong = 'deleteSong';
+  static const clearRecognitionHistory = 'clearRecognitionHistory';
+  static const openInSpotify = 'openInSpotify';
 }
 
 abstract final class BridgeEventTypes {
@@ -22,4 +28,5 @@ abstract final class BridgeEventTypes {
   static const recognitionMatching = 'recognition_matching';
   static const listeningStatus = 'listening_status';
   static const songRecognized = 'song_recognized';
+  static const historyChanged = 'history_changed';
 }
