@@ -1,0 +1,126 @@
+import 'dart:async';
+
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../../../core/constants/channel_names.dart';
+import '../../../core/errors/platform_failure.dart';
+import '../../../core/models/recognized_song.dart';
+import '../../../core/platform/sonora_platform.dart';
+
+enum RecognitionPhase {
+  idle,
+  requestingPermission,
+  capturing,
+  matching,
+  matched,
+  noMatch,
+  failed,
+}
+
+class RecognitionState {
+  const RecognitionState({
+    this.phase = RecognitionPhase.idle,
+    this.lastSong,
+    this.errorCode,
+    this.elapsed,
+  });
+
+  final RecognitionPhase phase;
+
+  /// Most recent match this session. Persisted history arrives in Phase 4.
+  final RecognizedSong? lastSong;
+
+  /// A [PlatformFailure] code, or `PERMISSION_DENIED` / `PERMISSION_PERMANENTLY_DENIED`.
+  final String? errorCode;
+  final Duration? elapsed;
+
+  bool get isBusy => switch (phase) {
+    RecognitionPhase.requestingPermission ||
+    RecognitionPhase.capturing ||
+    RecognitionPhase.matching => true,
+    _ => false,
+  };
+
+  RecognitionState next(
+    RecognitionPhase phase, {
+    RecognizedSong? song,
+    String? errorCode,
+    Duration? elapsed,
+  }) => RecognitionState(
+    phase: phase,
+    lastSong: song ?? lastSong,
+    errorCode: errorCode,
+    elapsed: elapsed,
+  );
+}
+
+abstract final class RecognitionErrors {
+  static const permissionDenied = 'PERMISSION_DENIED';
+  static const permissionPermanentlyDenied = 'PERMISSION_PERMANENTLY_DENIED';
+}
+
+final recognitionControllerProvider =
+    NotifierProvider<RecognitionController, RecognitionState>(
+      RecognitionController.new,
+    );
+
+/// Drives manual, user-initiated recognition (Phase 2).
+class RecognitionController extends Notifier<RecognitionState> {
+  @override
+  RecognitionState build() {
+    final subscription = ref.watch(sonoraPlatformProvider).events.listen((
+      event,
+    ) {
+      if (!state.isBusy) return;
+      switch (event.type) {
+        case BridgeEventTypes.recognitionCapturing:
+          state = state.next(RecognitionPhase.capturing);
+        case BridgeEventTypes.recognitionMatching:
+          state = state.next(RecognitionPhase.matching);
+      }
+    }, onError: (Object _) {});
+    ref.onDispose(subscription.cancel);
+    return const RecognitionState();
+  }
+
+  SonoraPlatform get _platform => ref.read(sonoraPlatformProvider);
+
+  Future<void> recognize() async {
+    if (state.isBusy) return;
+    state = state.next(RecognitionPhase.requestingPermission);
+
+    try {
+      final permission = await _platform.requestMicrophonePermission();
+      if (permission != MicrophonePermission.granted) {
+        state = state.next(
+          RecognitionPhase.failed,
+          errorCode: permission == MicrophonePermission.permanentlyDenied
+              ? RecognitionErrors.permissionPermanentlyDenied
+              : RecognitionErrors.permissionDenied,
+        );
+        return;
+      }
+
+      state = state.next(RecognitionPhase.capturing);
+      final attempt = await _platform.recognizeOnce();
+      state = attempt.matched
+          ? state.next(
+              RecognitionPhase.matched,
+              song: attempt.song,
+              elapsed: attempt.elapsed,
+            )
+          : state.next(RecognitionPhase.noMatch, elapsed: attempt.elapsed);
+    } on PlatformFailure catch (failure) {
+      state = state.next(RecognitionPhase.failed, errorCode: failure.code);
+    }
+  }
+
+  Future<void> cancel() async {
+    if (!state.isBusy) return;
+    try {
+      await _platform.cancelRecognition();
+    } on PlatformFailure {
+      // The pending recognizeOnce call still resolves (as CANCELLED).
+    }
+  }
+}

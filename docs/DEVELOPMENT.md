@@ -29,6 +29,25 @@ flutter config --jdk-dir "C:\Program Files\Android\Android Studio\jbr" --android
 
 - `flutter doctor` reports **cmdline-tools missing** and **licence status unknown**. Builds work anyway because the needed licences are already in the SDK `licenses/` folder. To clear the warnings, install *Android SDK Command-line Tools* from Android Studio (SDK Manager → SDK Tools), then run `flutter doctor --android-licenses`.
 
+## Recognition provider (ACRCloud)
+
+Without these steps the app still builds, but **Identify song** reports `PROVIDER_UNAVAILABLE`.
+
+1. Create an ACRCloud project: Audio & Video Recognition, *Recorded Audio*, *Audio Fingerprinting*, the *ACRCloud Music* bucket, and the spotify and isrc external IDs.
+2. Add your credentials to `android/local.properties` (git-ignored):
+   ```properties
+   acrcloud.host=identify-<region>.acrcloud.com
+   acrcloud.accessKey=...
+   acrcloud.accessSecret=...
+   ```
+3. From [ACRCloudUniversalSDK](https://github.com/acrcloud/ACRCloudUniversalSDK) `libs/`, copy:
+   - `acrcloud-universal-sdk-1.3.34.jar` into `android/app/libs/`
+   - `arm64-v8a/libACRCloudUniversalEngine.so` into `android/app/src/main/jniLibs/arm64-v8a/`
+
+   Both are git-ignored, because the SDK has no published licence.
+
+The credentials are compiled into `BuildConfig`, so **never distribute an APK built with your keys.**
+
 ## Running on the Galaxy S24 Ultra
 
 1. Settings → About phone → Software information → tap *Build number* 7 times.

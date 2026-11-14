@@ -12,9 +12,12 @@ object BridgeContract {
         const val GET_PLATFORM_INFO = "getPlatformInfo"
         const val GET_LISTENING_STATUS = "getListeningStatus"
 
+        const val REQUEST_PERMISSIONS = "requestPermissions"
+        const val RECOGNIZE_ONCE = "recognizeOnce"
+        const val CANCEL_RECOGNITION = "cancelRecognition"
+
         // Part of the published contract but implemented in later phases.
         // They answer with NOT_IMPLEMENTED instead of failing silently.
-        const val REQUEST_PERMISSIONS = "requestPermissions"
         const val START_LISTENING = "startListening"
         const val STOP_LISTENING = "stopListening"
         const val GET_RECOGNITION_HISTORY = "getRecognitionHistory"
@@ -23,7 +26,6 @@ object BridgeContract {
         const val UPDATE_RECOGNITION_SETTINGS = "updateRecognitionSettings"
 
         val PLANNED = setOf(
-            REQUEST_PERMISSIONS,
             START_LISTENING,
             STOP_LISTENING,
             GET_RECOGNITION_HISTORY,
@@ -35,6 +37,8 @@ object BridgeContract {
 
     object Events {
         const val BRIDGE_CONNECTED = "bridge_connected"
+        const val RECOGNITION_CAPTURING = "recognition_capturing"
+        const val RECOGNITION_MATCHING = "recognition_matching"
     }
 }
 
@@ -43,6 +47,7 @@ enum class BridgeErrorCode {
     NOT_IMPLEMENTED,
     INVALID_ARGUMENT,
     INTERNAL_ERROR,
+    ACTIVITY_UNAVAILABLE,
 }
 
 /** Builds the `{ success, data, error }` envelope every method returns. */
@@ -53,9 +58,12 @@ object BridgeResponse {
         "error" to null,
     )
 
-    fun failure(code: BridgeErrorCode, message: String): Map<String, Any?> = mapOf(
+    fun failure(code: BridgeErrorCode, message: String): Map<String, Any?> = failure(code.name, message)
+
+    /** For feature-specific codes such as RecognitionErrorCodes. */
+    fun failure(code: String, message: String): Map<String, Any?> = mapOf(
         "success" to false,
         "data" to null,
-        "error" to mapOf("code" to code.name, "message" to message),
+        "error" to mapOf("code" to code, "message" to message),
     )
 }

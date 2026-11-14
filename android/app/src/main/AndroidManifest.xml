@@ -1,4 +1,9 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Manual, user-initiated recognition (Phase 2). Audio is held in memory only. -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <!-- Sends audio fingerprints (not raw audio) to the recognition provider. -->
+    <uses-permission android:name="android.permission.INTERNET" />
+
     <application
         android:label="Sonora"
         android:name="${applicationName}"

@@ -2,6 +2,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sonora/core/constants/channel_names.dart';
 import 'package:sonora/core/errors/platform_failure.dart';
+import 'package:sonora/core/models/recognized_song.dart';
 import 'package:sonora/core/models/sonora_event.dart';
 import 'package:sonora/core/platform/sonora_platform.dart';
 
@@ -116,5 +117,66 @@ void main() {
     expect(event.type, 'bridge_connected');
     expect(event.timestamp.millisecondsSinceEpoch, 1000);
     expect(event.data, {'k': 'v'});
+  });
+
+  test('recognizeOnce parses a match', () async {
+    mockResponse(
+      (call) => {
+        'success': true,
+        'data': {
+          'matched': true,
+          'elapsedMs': 11200,
+          'song': {
+            'provider': 'acrcloud',
+            'providerId': 'abc123',
+            'title': 'Watermelon Sugar',
+            'artist': 'Harry Styles',
+            'album': 'Fine Line',
+            'isrc': 'USSM11914406',
+            'spotifyTrackId': '6UelLqGlWMcVH1E5c4H7lY',
+            'confidence': 1.0,
+            'recognizedAt': 1000,
+          },
+        },
+        'error': null,
+      },
+    );
+
+    final attempt = await platform.recognizeOnce();
+
+    expect(attempt.matched, isTrue);
+    expect(attempt.song!.title, 'Watermelon Sugar');
+    expect(attempt.song!.isrc, 'USSM11914406');
+    expect(attempt.elapsed, const Duration(milliseconds: 11200));
+  });
+
+  test('recognizeOnce parses a clean no-match', () async {
+    mockResponse(
+      (call) => {
+        'success': true,
+        'data': {'matched': false, 'song': null, 'elapsedMs': 10500},
+        'error': null,
+      },
+    );
+
+    final attempt = await platform.recognizeOnce();
+
+    expect(attempt.matched, isFalse);
+    expect(attempt.song, isNull);
+  });
+
+  test('requestMicrophonePermission maps native statuses', () async {
+    mockResponse(
+      (call) => {
+        'success': true,
+        'data': {'microphone': 'permanently_denied'},
+        'error': null,
+      },
+    );
+
+    expect(
+      await platform.requestMicrophonePermission(),
+      MicrophonePermission.permanentlyDenied,
+    );
   });
 }

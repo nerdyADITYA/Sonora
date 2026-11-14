@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
+import '../../recognition/widgets/recognize_card.dart';
 import '../providers/dashboard_providers.dart';
 import '../widgets/bridge_diagnostics_card.dart';
 import '../widgets/last_discovery_card.dart';
@@ -32,6 +33,8 @@ class DashboardScreen extends ConsumerWidget {
               sliver: SliverList.list(
                 children: const [
                   ListeningCard(),
+                  SizedBox(height: 12),
+                  RecognizeCard(),
                   SizedBox(height: 12),
                   LastDiscoveryCard(),
                   SizedBox(height: 12),

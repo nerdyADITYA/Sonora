@@ -37,7 +37,14 @@ Error codes: `NOT_IMPLEMENTED`, `INVALID_ARGUMENT`, `INTERNAL_ERROR` (native), p
 |---|---|---|
 | `getPlatformInfo` | v0.1.0 | `manufacturer, brand, model, device, androidVersion, sdkInt, securityPatch, isSamsung, appVersion` |
 | `getListeningStatus` | v0.1.0 | `listening: bool, available: bool` (always `false/false` until Phase 3) |
-| `requestPermissions`, `startListening`, `stopListening`, `getRecognitionHistory`, `clearRecognitionHistory`, `getRecognitionSettings`, `updateRecognitionSettings` | planned | currently return `NOT_IMPLEMENTED` |
+| `requestPermissions` | v0.2.0 | `microphone: "granted" \| "denied" \| "permanently_denied"` (shows the system prompt if needed) |
+| `recognizeOnce` | v0.2.0 | `matched: bool, song: RecognizedSong?, elapsedMs: int`. Captures about 10 s in the foreground, fingerprints it on the device, and matches it with ACRCloud |
+| `cancelRecognition` | v0.2.0 | none; the pending `recognizeOnce` fails with `CANCELLED` |
+| `startListening`, `stopListening`, `getRecognitionHistory`, `clearRecognitionHistory`, `getRecognitionSettings`, `updateRecognitionSettings` | planned | currently return `NOT_IMPLEMENTED` |
+
+`RecognizedSong`: `provider, providerId, title, artist, album?, releaseDate?, durationMs?, isrc?, spotifyTrackId?, artworkUrl?, confidence? (0–1), recognizedAt (epoch ms)`.
+
+Recognition error codes: `PERMISSION_REQUIRED`, `MICROPHONE_UNAVAILABLE`, `MICROPHONE_SILENT` (privacy toggle on), `CANCELLED`, `BUSY`, `NOT_CONFIGURED`, `PROVIDER_UNAVAILABLE` (built without the SDK), `NETWORK_UNAVAILABLE`, `INVALID_CREDENTIALS`, `QUOTA_EXCEEDED`, `PROVIDER_ERROR`.
 
 Unknown methods return Flutter's standard `notImplemented`.
 
@@ -48,4 +55,18 @@ Envelope: `{ "type": String, "timestamp": epochMillis, "data": Map? }`
 | Type | Status | Sent when |
 |---|---|---|
 | `bridge_connected` | v0.1.0 | Flutter subscribes to the events channel |
-| `listening_started`, `listening_stopped`, `song_recognized`, `recognition_error` | planned | defined when Phase 2/3 ships |
+| `recognition_capturing` | v0.2.0 | the microphone starts capturing for `recognizeOnce` |
+| `recognition_matching` | v0.2.0 | capture is done and the fingerprint is being matched |
+| `listening_started`, `listening_stopped`, `song_recognized`, `recognition_error` | planned | defined when Phase 3 ships |
+
+## Recognition (native)
+
+```
+RecognitionManager ── AudioCaptureManager (AudioRecord, 44.1 kHz PCM16 mono, memory only, wiped after use)
+        │
+        └── RecognitionEngine ← RecognitionEngineFactory
+                ├── AcrCloudRecognitionEngine   (src/acrcloud/kotlin, compiled when the SDK JAR is present)
+                └── stub engine                 (src/noAcrcloud/kotlin, returns PROVIDER_UNAVAILABLE)
+```
+
+`app/build.gradle.kts` picks the source set depending on whether `android/app/libs/acrcloud-universal-sdk-*.jar` exists, so clones without the proprietary SDK still build.

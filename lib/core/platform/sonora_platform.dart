@@ -6,6 +6,7 @@ import '../errors/platform_failure.dart';
 import '../models/bridge_response.dart';
 import '../models/listening_status.dart';
 import '../models/platform_info.dart';
+import '../models/recognized_song.dart';
 import '../models/sonora_event.dart';
 
 final sonoraPlatformProvider = Provider<SonoraPlatform>(
@@ -28,6 +29,20 @@ class SonoraPlatform {
 
   Future<ListeningStatus> getListeningStatus() async =>
       ListeningStatus.fromMap(await _invoke(BridgeMethods.getListeningStatus));
+
+  /// Shows the system microphone prompt if needed.
+  Future<MicrophonePermission> requestMicrophonePermission() async {
+    final data = await _invoke(BridgeMethods.requestPermissions);
+    return MicrophonePermission.parse(data['microphone']);
+  }
+
+  /// Captures about 10 s of audio and identifies it. Throws [PlatformFailure] on errors.
+  Future<RecognitionAttempt> recognizeOnce() async =>
+      RecognitionAttempt.fromMap(await _invoke(BridgeMethods.recognizeOnce));
+
+  Future<void> cancelRecognition() async {
+    await _invoke(BridgeMethods.cancelRecognition);
+  }
 
   /// Broadcast stream of native events; safe to listen to more than once.
   Stream<SonoraEvent> get events => _events ??= _eventsChannel

@@ -54,3 +54,9 @@ app.*.map.json
 *.jks
 *.keystore
 key.properties
+
+# Proprietary recognition SDK binaries and keys (see docs/RECOGNITION_FEASIBILITY.md)
+android/app/libs/*.aar
+*.p8
+android/app/libs/*.jar
+android/app/src/main/jniLibs/**/*.so

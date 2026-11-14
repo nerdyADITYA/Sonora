@@ -40,7 +40,7 @@ flutter run            # with a device connected over USB
 
 ## Privacy
 
-Sonora is designed around these rules: no permanent audio recordings, in-memory buffers only, a visible indicator and stop control whenever it's listening, and clear disclosure of any recognition provider that receives audio-derived data. Today's build requests no microphone permission at all.
+Sonora is designed around these rules: no permanent audio recordings, in-memory buffers only, a visible indicator and stop control whenever it's listening, and clear disclosure of any recognition provider that receives audio-derived data. Recognition sends ACRCloud an audio **fingerprint**, never the recording. After a match, Sonora looks up album artwork by sending the Spotify track ID to Spotify's public oEmbed endpoint, or the title and artist to the iTunes Search API. No audio is involved.
 
 ## License
 
