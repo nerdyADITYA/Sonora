@@ -2,6 +2,7 @@ package dev.sonora.sonora
 
 import android.Manifest
 import android.content.pm.PackageManager
+import android.os.Build
 import dev.sonora.sonora.bridge.PermissionRequester
 import dev.sonora.sonora.bridge.SonoraEventChannel
 import dev.sonora.sonora.bridge.SonoraMethodChannel
@@ -12,16 +13,16 @@ import io.flutter.embedding.engine.FlutterEngine
 /**
  * Hosts the Flutter UI and wires up the Flutter <-> Kotlin bridge.
  *
- * Long-lived work must not depend on this activity. Native components publish
- * through [dev.sonora.sonora.bridge.SonoraEvents]. The activity's extra job
- * is runtime permission prompts, which need an activity.
+ * Long-lived work (the listening service) must not depend on this activity.
+ * Native components publish through [dev.sonora.sonora.bridge.SonoraEvents].
+ * The activity's extra job is runtime permission prompts, which need an activity.
  */
 class MainActivity : FlutterActivity(), PermissionRequester {
 
     private var methodChannel: SonoraMethodChannel? = null
     private var eventChannel: SonoraEventChannel? = null
     private var recognition: RecognitionManager? = null
-    private var pendingMicrophoneResult: ((String) -> Unit)? = null
+    private var pendingPermissionResult: ((Map<String, String>) -> Unit)? = null
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -41,32 +42,48 @@ class MainActivity : FlutterActivity(), PermissionRequester {
         super.cleanUpFlutterEngine(flutterEngine)
     }
 
-    override fun requestMicrophone(onResult: (String) -> Unit) {
-        if (pendingMicrophoneResult != null) {
-            onResult(DENIED) // A prompt is already showing.
+    private val requestedPermissions: List<String>
+        get() = buildList {
+            add(Manifest.permission.RECORD_AUDIO)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) add(Manifest.permission.POST_NOTIFICATIONS)
+        }
+
+    override fun requestPermissions(onResult: (Map<String, String>) -> Unit) {
+        val missing = requestedPermissions.filter { checkSelfPermission(it) != PackageManager.PERMISSION_GRANTED }
+        if (missing.isEmpty() || pendingPermissionResult != null) {
+            onResult(currentStatuses())
             return
         }
-        pendingMicrophoneResult = onResult
-        requestPermissions(arrayOf(Manifest.permission.RECORD_AUDIO), REQUEST_MICROPHONE)
+        pendingPermissionResult = onResult
+        requestPermissions(missing.toTypedArray(), REQUEST_PERMISSIONS)
     }
 
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        if (requestCode != REQUEST_MICROPHONE) return
-        val callback = pendingMicrophoneResult ?: return
-        pendingMicrophoneResult = null
+        if (requestCode != REQUEST_PERMISSIONS) return
+        val callback = pendingPermissionResult ?: return
+        pendingPermissionResult = null
+        callback(currentStatuses())
+    }
 
-        val status = when {
-            grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED -> GRANTED
-            // After a denial Android stops showing the prompt; the user must use Settings.
-            !shouldShowRequestPermissionRationale(Manifest.permission.RECORD_AUDIO) -> PERMANENTLY_DENIED
-            else -> DENIED
-        }
-        callback(status)
+    private fun currentStatuses(): Map<String, String> = mapOf(
+        "microphone" to statusOf(Manifest.permission.RECORD_AUDIO),
+        "notifications" to if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            statusOf(Manifest.permission.POST_NOTIFICATIONS)
+        } else {
+            GRANTED // Granted at install before Android 13.
+        },
+    )
+
+    private fun statusOf(permission: String): String = when {
+        checkSelfPermission(permission) == PackageManager.PERMISSION_GRANTED -> GRANTED
+        // After a denial Android stops showing the prompt; the user must use Settings.
+        !shouldShowRequestPermissionRationale(permission) -> PERMANENTLY_DENIED
+        else -> DENIED
     }
 
     private companion object {
-        const val REQUEST_MICROPHONE = 4101
+        const val REQUEST_PERMISSIONS = 4101
         const val GRANTED = "granted"
         const val DENIED = "denied"
         const val PERMANENTLY_DENIED = "permanently_denied"

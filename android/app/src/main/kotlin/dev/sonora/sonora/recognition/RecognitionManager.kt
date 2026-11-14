@@ -9,6 +9,7 @@ import dev.sonora.sonora.audio.AudioCaptureManager
 import dev.sonora.sonora.audio.AudioConfiguration
 import dev.sonora.sonora.bridge.BridgeContract
 import dev.sonora.sonora.bridge.SonoraEvents
+import dev.sonora.sonora.services.ServiceStateManager
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicBoolean
 
@@ -30,8 +31,20 @@ class RecognitionManager(context: Context) {
 
     val hasMicrophonePermission: Boolean get() = audio.hasPermission()
 
+    val isBusy: Boolean get() = busy.get()
+
     /** [onComplete] runs on the main thread with the outcome and the elapsed milliseconds. */
     fun recognizeOnce(onComplete: (RecognitionOutcome, Long) -> Unit) {
+        if (ServiceStateManager.snapshot.listening) {
+            onComplete(
+                RecognitionOutcome.Failure(
+                    RecognitionErrorCodes.LISTENING_ACTIVE,
+                    "Ambient listening is on and already using the microphone.",
+                ),
+                0,
+            )
+            return
+        }
         if (!busy.compareAndSet(false, true)) {
             onComplete(RecognitionOutcome.Failure(RecognitionErrorCodes.BUSY, "Recognition already running."), 0)
             return
@@ -61,15 +74,8 @@ class RecognitionManager(context: Context) {
         }
     }
 
-    private fun withArtwork(match: RecognitionOutcome.Match): RecognitionOutcome.Match {
-        if (match.song.artworkUrl != null) return match
-        val artwork = try {
-            ArtworkResolver.resolve(match.song)
-        } catch (e: Exception) {
-            null
-        }
-        return if (artwork == null) match else RecognitionOutcome.Match(match.song.copy(artworkUrl = artwork))
-    }
+    private fun withArtwork(match: RecognitionOutcome.Match) =
+        RecognitionOutcome.Match(ArtworkResolver.enrich(match.song))
 
     fun cancel() = audio.cancel()
 

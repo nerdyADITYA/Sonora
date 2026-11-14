@@ -2,18 +2,22 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../../../app/theme/app_colors.dart';
+import '../../listening/providers/listening_controller.dart';
 import '../../recognition/providers/recognition_controller.dart';
 
-/// The most recent match this session. Persistent history arrives in Phase 4.
+/// The most recent match. Persistent history arrives in Phase 4.
 class LastDiscoveryCard extends ConsumerWidget {
   const LastDiscoveryCard({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
-    final song = ref.watch(
-      recognitionControllerProvider.select((s) => s.lastSong),
-    );
+    // Manual or ambient match this session, else the service's last match.
+    final song =
+        ref.watch(recognitionControllerProvider.select((s) => s.lastSong)) ??
+        ref.watch(
+          listeningControllerProvider.select((s) => s.status?.lastSong),
+        );
     final secondary = theme.textTheme.bodyMedium?.copyWith(
       color: AppColors.textSecondary,
     );

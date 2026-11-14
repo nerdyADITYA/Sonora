@@ -71,11 +71,18 @@ class RecognitionController extends Notifier<RecognitionState> {
     final subscription = ref.watch(sonoraPlatformProvider).events.listen((
       event,
     ) {
-      if (!state.isBusy) return;
       switch (event.type) {
-        case BridgeEventTypes.recognitionCapturing:
+        // Songs found by ambient listening become the last discovery too.
+        case BridgeEventTypes.songRecognized:
+          state = RecognitionState(
+            phase: state.phase,
+            lastSong: RecognizedSong.fromMap(event.data),
+            errorCode: state.errorCode,
+            elapsed: state.elapsed,
+          );
+        case BridgeEventTypes.recognitionCapturing when state.isBusy:
           state = state.next(RecognitionPhase.capturing);
-        case BridgeEventTypes.recognitionMatching:
+        case BridgeEventTypes.recognitionMatching when state.isBusy:
           state = state.next(RecognitionPhase.matching);
       }
     }, onError: (Object _) {});

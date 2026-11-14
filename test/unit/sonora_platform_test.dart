@@ -2,6 +2,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sonora/core/constants/channel_names.dart';
 import 'package:sonora/core/errors/platform_failure.dart';
+import 'package:sonora/core/models/listening_status.dart';
 import 'package:sonora/core/models/recognized_song.dart';
 import 'package:sonora/core/models/sonora_event.dart';
 import 'package:sonora/core/platform/sonora_platform.dart';
@@ -177,6 +178,59 @@ void main() {
     expect(
       await platform.requestMicrophonePermission(),
       MicrophonePermission.permanentlyDenied,
+    );
+  });
+
+  test('getListeningStatus parses the full service snapshot', () async {
+    mockResponse(
+      (call) => {
+        'success': true,
+        'data': {
+          'listening': true,
+          'available': true,
+          'phase': 'microphone_blocked',
+          'nextCheckAt': 5000,
+          'requestsToday': 12,
+          'dailyBudget': 200,
+          'lastSong': {
+            'title': 'Snowman',
+            'artist': 'Sia',
+            'recognizedAt': 1000,
+          },
+          'lastError': 'MICROPHONE_UNAVAILABLE',
+        },
+        'error': null,
+      },
+    );
+
+    final status = await platform.getListeningStatus();
+
+    expect(status.listening, isTrue);
+    expect(status.phase, ListeningPhase.microphoneBlocked);
+    expect(status.nextCheckAt!.millisecondsSinceEpoch, 5000);
+    expect(status.requestsToday, 12);
+    expect(status.lastSong!.title, 'Snowman');
+    expect(status.lastError, 'MICROPHONE_UNAVAILABLE');
+  });
+
+  test('startListening surfaces a permission failure code', () async {
+    mockResponse(
+      (call) => {
+        'success': false,
+        'data': null,
+        'error': {'code': 'PERMISSION_REQUIRED', 'message': 'No mic.'},
+      },
+    );
+
+    expect(
+      platform.startListening(),
+      throwsA(
+        isA<PlatformFailure>().having(
+          (f) => f.code,
+          'code',
+          'PERMISSION_REQUIRED',
+        ),
+      ),
     );
   });
 }

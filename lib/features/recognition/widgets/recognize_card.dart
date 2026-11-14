@@ -2,7 +2,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../../../app/theme/app_colors.dart';
+import '../../listening/providers/listening_controller.dart';
 import '../providers/recognition_controller.dart';
+import '../recognition_error_copy.dart';
 
 /// Manual "identify this song" control with status and error copy.
 class RecognizeCard extends ConsumerWidget {
@@ -13,7 +15,17 @@ class RecognizeCard extends ConsumerWidget {
     final theme = Theme.of(context);
     final state = ref.watch(recognitionControllerProvider);
     final controller = ref.read(recognitionControllerProvider.notifier);
-    final (headline, detail, color) = _describe(state);
+    final listening = ref.watch(
+      listeningControllerProvider.select((s) => s.listening),
+    );
+    var (headline, detail, color) = _describe(state);
+    if (listening && !state.isBusy) {
+      (headline, detail, color) = (
+        'Listening automatically',
+        'Ambient listening is on, so songs appear below as they are found.',
+        null,
+      );
+    }
 
     return Card(
       child: Padding(
@@ -56,7 +68,7 @@ class RecognizeCard extends ConsumerWidget {
                     label: const Text('Cancel'),
                   )
                 : FilledButton.icon(
-                    onPressed: controller.recognize,
+                    onPressed: listening ? null : controller.recognize,
                     icon: const Icon(Icons.graphic_eq),
                     label: const Text('Identify song'),
                   ),
@@ -113,21 +125,5 @@ class RecognizeCard extends ConsumerWidget {
     _ => "Couldn't identify the song",
   };
 
-  static String? _errorDetail(String? code) => switch (code) {
-    'CANCELLED' => null,
-    RecognitionErrors.permissionDenied => 'Sonora needs the microphone to hear the music. Nothing is recorded or stored.',
-    RecognitionErrors.permissionPermanentlyDenied =>
-      'Enable it in Settings › Apps › Sonora › Permissions › Microphone.',
-    'MICROPHONE_SILENT' => 'The microphone returned silence. Check that microphone access is on in Quick Settings.',
-    'MICROPHONE_UNAVAILABLE' => 'The microphone is busy or unavailable. Close any app using it and try again.',
-    'NETWORK_UNAVAILABLE' => "Couldn't reach ACRCloud. Check your connection.",
-    'INVALID_CREDENTIALS' =>
-      'ACRCloud rejected the credentials. Check android/local.properties.',
-    'NOT_CONFIGURED' =>
-      'ACRCloud credentials are missing from android/local.properties.',
-    'PROVIDER_UNAVAILABLE' => 'This build has no recognition engine. See docs/RECOGNITION_FEASIBILITY.md.',
-    'QUOTA_EXCEEDED' => 'ACRCloud request limit reached. Try again later.',
-    'BUSY' => 'A recognition is already running.',
-    final other => 'Error code: ${other ?? 'unknown'}',
-  };
+  static String? _errorDetail(String? code) => recognitionErrorDetail(code);
 }

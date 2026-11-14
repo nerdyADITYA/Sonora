@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
+import '../../listening/providers/listening_controller.dart';
 import '../../recognition/widgets/recognize_card.dart';
 import '../providers/dashboard_providers.dart';
 import '../widgets/bridge_diagnostics_card.dart';
@@ -16,12 +17,9 @@ class DashboardScreen extends ConsumerWidget {
       body: RefreshIndicator(
         onRefresh: () async {
           ref.invalidate(platformInfoProvider);
-          ref.invalidate(listeningStatusProvider);
           await Future.wait([
+            ref.read(listeningControllerProvider.notifier).refresh(),
             ref.read(platformInfoProvider.future).then((_) {}, onError: (_) {}),
-            ref
-                .read(listeningStatusProvider.future)
-                .then((_) {}, onError: (_) {}),
           ]);
         },
         child: CustomScrollView(

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
@@ -38,9 +40,28 @@ class _FakePlatform extends SonoraPlatform {
     );
   }
 
+  final _events = StreamController<SonoraEvent>.broadcast();
+  ListeningStatus _status = ListeningStatus.stopped;
+
+  void emit(String type, Map<String, Object?> data) => _events.add(
+    SonoraEvent(type: type, timestamp: DateTime(2026), data: data),
+  );
+
   @override
-  Future<ListeningStatus> getListeningStatus() async =>
-      const ListeningStatus(listening: false, available: false);
+  Future<ListeningStatus> getListeningStatus() async => _status;
+
+  @override
+  Future<ListeningStatus> startListening() async => _status = ListeningStatus(
+    listening: true,
+    available: true,
+    phase: ListeningPhase.waiting,
+    nextCheckAt: DateTime(2026, 11, 14, 18, 30),
+    requestsToday: 3,
+    dailyBudget: 200,
+  );
+
+  @override
+  Future<void> stopListening() async => _status = ListeningStatus.stopped;
 
   @override
   Future<MicrophonePermission> requestMicrophonePermission() async =>
@@ -54,9 +75,10 @@ class _FakePlatform extends SonoraPlatform {
   }
 
   @override
-  Stream<SonoraEvent> get events => Stream.value(
-    SonoraEvent(type: 'bridge_connected', timestamp: DateTime(2026)),
-  );
+  Stream<SonoraEvent> get events async* {
+    yield SonoraEvent(type: 'bridge_connected', timestamp: DateTime(2026));
+    yield* _events.stream;
+  }
 }
 
 final _song = RecognizedSong(
@@ -103,9 +125,9 @@ void main() {
     expect(find.text('17 (API 37)'), findsOneWidget);
     expect(find.text('Event channel: Connected'), findsOneWidget);
 
-    // Continuous listening cannot be toggled until the native service exists.
     final toggle = tester.widget<Switch>(find.byType(Switch));
-    expect(toggle.onChanged, isNull);
+    expect(toggle.value, isFalse);
+    expect(toggle.onChanged, isNotNull);
   });
 
   testWidgets(
@@ -179,5 +201,74 @@ void main() {
 
     expect(find.text("Couldn't identify the song"), findsOneWidget);
     expect(find.textContaining("Couldn't reach ACRCloud"), findsOneWidget);
+  });
+
+  testWidgets('turning listening on shows live status and pauses Identify', (
+    tester,
+  ) async {
+    await _pump(tester, _FakePlatform());
+
+    await tester.tap(find.byType(Switch));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Listening for music'), findsOneWidget);
+    expect(find.textContaining('3/200 checks today'), findsOneWidget);
+    expect(find.text('Listening automatically'), findsOneWidget);
+    final identify = tester.widget<FilledButton>(find.byType(FilledButton));
+    expect(identify.onPressed, isNull);
+
+    await tester.tap(find.byType(Switch));
+    await tester.pumpAndSettle();
+    expect(find.text('Not listening'), findsOneWidget);
+  });
+
+  testWidgets('a denied microphone keeps listening off and explains why', (
+    tester,
+  ) async {
+    await _pump(tester, _FakePlatform(permission: MicrophonePermission.denied));
+
+    await tester.tap(find.byType(Switch));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Not listening'), findsOneWidget);
+    expect(find.textContaining('needs the microphone'), findsOneWidget);
+  });
+
+  testWidgets('songs found by ambient listening become the last discovery', (
+    tester,
+  ) async {
+    final platform = _FakePlatform();
+    await _pump(tester, platform);
+
+    platform.emit('song_recognized', {
+      'provider': 'acrcloud',
+      'providerId': 'xyz',
+      'title': 'Snowman',
+      'artist': 'Sia',
+      'album': 'Everyday Is Christmas',
+      'recognizedAt': 1000,
+    });
+    await tester.pumpAndSettle();
+
+    expect(find.text('Snowman'), findsOneWidget);
+    expect(find.text('Sia'), findsOneWidget);
+  });
+
+  testWidgets('a background status event updates the listening card', (
+    tester,
+  ) async {
+    final platform = _FakePlatform();
+    await _pump(tester, platform);
+
+    platform.emit('listening_status', {
+      'listening': true,
+      'available': true,
+      'phase': 'paused_budget',
+      'requestsToday': 200,
+      'dailyBudget': 200,
+    });
+    await tester.pumpAndSettle();
+
+    expect(find.text('Paused for today'), findsOneWidget);
   });
 }

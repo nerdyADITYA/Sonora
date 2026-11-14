@@ -20,6 +20,17 @@ object ArtworkResolver {
     private const val TAG = "ArtworkResolver"
     private const val TIMEOUT_MS = 4_000
 
+    /** Returns [song] with artwork filled in when it can be found. Blocking. */
+    fun enrich(song: RecognizedSong): RecognizedSong {
+        if (song.artworkUrl != null) return song
+        val url = try {
+            resolve(song)
+        } catch (e: Exception) {
+            null
+        }
+        return if (url == null) song else song.copy(artworkUrl = url)
+    }
+
     fun resolve(song: RecognizedSong): String? =
         song.spotifyTrackId?.let(::fromSpotify) ?: fromITunes(song.title, song.artist)
 

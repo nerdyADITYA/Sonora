@@ -44,6 +44,14 @@ class SonoraPlatform {
     await _invoke(BridgeMethods.cancelRecognition);
   }
 
+  /// Starts the microphone foreground service. Call only while the app is visible.
+  Future<ListeningStatus> startListening() async =>
+      ListeningStatus.fromMap(await _invoke(BridgeMethods.startListening));
+
+  Future<void> stopListening() async {
+    await _invoke(BridgeMethods.stopListening);
+  }
+
   /// Broadcast stream of native events; safe to listen to more than once.
   Stream<SonoraEvent> get events => _events ??= _eventsChannel
       .receiveBroadcastStream()

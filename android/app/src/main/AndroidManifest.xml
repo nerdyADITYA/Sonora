@@ -1,8 +1,15 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-    <!-- Manual, user-initiated recognition (Phase 2). Audio is held in memory only. -->
+    <!-- Recognition. Audio is held in memory only, never stored. -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <!-- Sends audio fingerprints (not raw audio) to the recognition provider. -->
     <uses-permission android:name="android.permission.INTERNET" />
+
+    <!-- User-started ambient listening (Phase 3). -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- Keeps scheduled checks running with the screen off while listening. -->
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
 
     <application
         android:label="Sonora"
@@ -30,6 +37,10 @@
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
+        <service
+            android:name=".services.SonoraRecognitionService"
+            android:exported="false"
+            android:foregroundServiceType="microphone" />
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
         <meta-data

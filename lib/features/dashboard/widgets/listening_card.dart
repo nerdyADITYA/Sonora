@@ -2,35 +2,22 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../../../app/theme/app_colors.dart';
-import '../providers/dashboard_providers.dart';
+import '../../../core/models/listening_status.dart';
+import '../../listening/providers/listening_controller.dart';
+import '../../recognition/recognition_error_copy.dart';
 
-/// Shows the listening state. The switch stays disabled until the native
-/// listening service exists (Phase 3); it never pretends to listen.
+/// Ambient listening on/off with live status from the native service.
 class ListeningCard extends ConsumerWidget {
   const ListeningCard({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
-    final status = ref.watch(listeningStatusProvider);
-
-    final (title, subtitle, listening, available) = switch (status) {
-      AsyncData(:final value) => (
-        value.listening ? 'Listening' : 'Not listening',
-        value.available
-            ? 'Sonora identifies music playing around you.'
-            : 'Ambient listening arrives in a later release.',
-        value.listening,
-        value.available,
-      ),
-      AsyncError() => (
-        'Status unavailable',
-        'Could not reach the native service.',
-        false,
-        false,
-      ),
-      _ => ('Checking…', '', false, false),
-    };
+    final state = ref.watch(listeningControllerProvider);
+    final controller = ref.read(listeningControllerProvider.notifier);
+    final status = state.status;
+    final listening = state.listening;
+    final (title, subtitle, accent) = _describe(context, state);
 
     return Card(
       child: Padding(
@@ -41,7 +28,7 @@ class ListeningCard extends ConsumerWidget {
               width: 48,
               height: 48,
               decoration: BoxDecoration(
-                color: listening ? AppColors.accent : AppColors.surfaceHigh,
+                color: listening ? accent : AppColors.surfaceHigh,
                 shape: BoxShape.circle,
               ),
               child: Icon(
@@ -55,7 +42,7 @@ class ListeningCard extends ConsumerWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(title, style: theme.textTheme.titleMedium),
-                  if (subtitle.isNotEmpty) ...[
+                  if (subtitle != null) ...[
                     const SizedBox(height: 4),
                     Text(
                       subtitle,
@@ -67,10 +54,58 @@ class ListeningCard extends ConsumerWidget {
                 ],
               ),
             ),
-            Switch(value: listening, onChanged: available ? (_) {} : null),
+            Switch(
+              value: listening,
+              onChanged: status == null || state.toggling
+                  ? null
+                  : (on) => on ? controller.start() : controller.stop(),
+            ),
           ],
         ),
       ),
     );
+  }
+
+  static (String, String?, Color) _describe(
+    BuildContext context,
+    ListeningState state,
+  ) {
+    final status = state.status;
+    if (status == null) return ('Checking…', null, AppColors.accent);
+
+    if (!status.listening) {
+      final error = state.startError ?? status.lastError;
+      return (
+        state.toggling ? 'Starting…' : 'Not listening',
+        recognitionErrorDetail(error) ??
+            'Turn on to identify music around you automatically.',
+        AppColors.accent,
+      );
+    }
+
+    final usage = '${status.requestsToday}/${status.dailyBudget} checks today';
+    final next = status.nextCheckAt == null
+        ? null
+        : 'Next check around ${TimeOfDay.fromDateTime(status.nextCheckAt!).format(context)}';
+
+    return switch (status.phase) {
+      ListeningPhase.listening => ('Listening…', usage, AppColors.accent),
+      ListeningPhase.matching => ('Identifying…', usage, AppColors.accent),
+      ListeningPhase.pausedBudget => (
+        'Paused for today',
+        'Daily limit of ${status.dailyBudget} checks reached. Turn off to stop the service.',
+        AppColors.warning,
+      ),
+      ListeningPhase.microphoneBlocked => (
+        'Microphone blocked',
+        'The microphone returned silence or is in use. Check the microphone toggle in Quick Settings.',
+        AppColors.warning,
+      ),
+      _ => (
+        'Listening for music',
+        [?next, usage].join(' · '),
+        AppColors.accent,
+      ),
+    };
   }
 }

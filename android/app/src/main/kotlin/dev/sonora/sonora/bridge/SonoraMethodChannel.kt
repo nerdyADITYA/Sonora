@@ -4,16 +4,24 @@ import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Build
 import android.util.Log
+import dev.sonora.sonora.audio.AudioCaptureManager
+import dev.sonora.sonora.recognition.RecognitionErrorCodes
 import dev.sonora.sonora.recognition.RecognitionManager
 import dev.sonora.sonora.recognition.RecognitionOutcome
+import dev.sonora.sonora.services.ServiceStateManager
+import dev.sonora.sonora.services.SonoraRecognitionService
 import io.flutter.plugin.common.BinaryMessenger
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
 
 /** Asks the user for runtime permissions. Implemented by the hosting activity. */
 fun interface PermissionRequester {
-    /** [onResult] receives "granted", "denied" or "permanently_denied". */
-    fun requestMicrophone(onResult: (String) -> Unit)
+    /**
+     * Requests the microphone and, on Android 13+, notifications. [onResult]
+     * receives `microphone` and `notifications`, each "granted", "denied" or
+     * "permanently_denied".
+     */
+    fun requestPermissions(onResult: (Map<String, String>) -> Unit)
 }
 
 /** Handles request/response calls from Flutter on [BridgeContract.CONTROL_CHANNEL]. */
@@ -37,8 +45,14 @@ class SonoraMethodChannel(
                     result.success(BridgeResponse.success(platformInfo()))
 
                 BridgeContract.Methods.GET_LISTENING_STATUS ->
-                    // Continuous listening arrives in Phase 3.
-                    result.success(BridgeResponse.success(mapOf("listening" to false, "available" to false)))
+                    result.success(BridgeResponse.success(ServiceStateManager.snapshot.toMap()))
+
+                BridgeContract.Methods.START_LISTENING -> result.success(startListening())
+
+                BridgeContract.Methods.STOP_LISTENING -> {
+                    SonoraRecognitionService.stop(context)
+                    result.success(BridgeResponse.success())
+                }
 
                 BridgeContract.Methods.REQUEST_PERMISSIONS -> requestPermissions(result)
 
@@ -68,12 +82,18 @@ class SonoraMethodChannel(
     }
 
     private fun requestPermissions(result: MethodChannel.Result) {
-        if (recognition.hasMicrophonePermission) {
-            result.success(BridgeResponse.success(mapOf("microphone" to "granted")))
-            return
-        }
-        permissions.requestMicrophone { status ->
-            result.success(BridgeResponse.success(mapOf("microphone" to status)))
+        permissions.requestPermissions { statuses -> result.success(BridgeResponse.success(statuses)) }
+    }
+
+    private fun startListening(): Map<String, Any?> = when {
+        !recognition.hasMicrophonePermission ->
+            BridgeResponse.failure(AudioCaptureManager.PERMISSION_REQUIRED, "Microphone permission not granted.")
+        recognition.isBusy ->
+            BridgeResponse.failure(RecognitionErrorCodes.BUSY, "Wait for the current recognition to finish.")
+        else -> {
+            // Called from the visible app, which Android requires for microphone services.
+            SonoraRecognitionService.start(context)
+            BridgeResponse.success(ServiceStateManager.snapshot.toMap())
         }
     }
 

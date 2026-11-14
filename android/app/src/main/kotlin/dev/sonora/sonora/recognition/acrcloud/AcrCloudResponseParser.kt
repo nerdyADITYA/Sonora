@@ -75,6 +75,7 @@ object AcrCloudResponseParser {
                 // The identify response has no cover art; ArtworkResolver fills this in.
                 artworkUrl = null,
                 confidence = best.optInt("score", -1).takeIf { it >= 0 }?.let { it / 100.0 },
+                playOffsetMs = best.optInt("play_offset_ms", -1).takeIf { it >= 0 },
                 recognizedAt = now,
             ),
         )

@@ -12,10 +12,14 @@ abstract final class BridgeMethods {
   static const requestPermissions = 'requestPermissions';
   static const recognizeOnce = 'recognizeOnce';
   static const cancelRecognition = 'cancelRecognition';
+  static const startListening = 'startListening';
+  static const stopListening = 'stopListening';
 }
 
 abstract final class BridgeEventTypes {
   static const bridgeConnected = 'bridge_connected';
   static const recognitionCapturing = 'recognition_capturing';
   static const recognitionMatching = 'recognition_matching';
+  static const listeningStatus = 'listening_status';
+  static const songRecognized = 'song_recognized';
 }

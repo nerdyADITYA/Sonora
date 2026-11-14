@@ -15,19 +15,17 @@ object BridgeContract {
         const val REQUEST_PERMISSIONS = "requestPermissions"
         const val RECOGNIZE_ONCE = "recognizeOnce"
         const val CANCEL_RECOGNITION = "cancelRecognition"
+        const val START_LISTENING = "startListening"
+        const val STOP_LISTENING = "stopListening"
 
         // Part of the published contract but implemented in later phases.
         // They answer with NOT_IMPLEMENTED instead of failing silently.
-        const val START_LISTENING = "startListening"
-        const val STOP_LISTENING = "stopListening"
         const val GET_RECOGNITION_HISTORY = "getRecognitionHistory"
         const val CLEAR_RECOGNITION_HISTORY = "clearRecognitionHistory"
         const val GET_RECOGNITION_SETTINGS = "getRecognitionSettings"
         const val UPDATE_RECOGNITION_SETTINGS = "updateRecognitionSettings"
 
         val PLANNED = setOf(
-            START_LISTENING,
-            STOP_LISTENING,
             GET_RECOGNITION_HISTORY,
             CLEAR_RECOGNITION_HISTORY,
             GET_RECOGNITION_SETTINGS,
@@ -39,6 +37,8 @@ object BridgeContract {
         const val BRIDGE_CONNECTED = "bridge_connected"
         const val RECOGNITION_CAPTURING = "recognition_capturing"
         const val RECOGNITION_MATCHING = "recognition_matching"
+        const val LISTENING_STATUS = "listening_status"
+        const val SONG_RECOGNIZED = "song_recognized"
     }
 }
 

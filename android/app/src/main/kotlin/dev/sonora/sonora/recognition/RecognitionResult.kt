@@ -14,6 +14,8 @@ data class RecognizedSong(
     val artworkUrl: String?,
     /** 0.0–1.0, where the provider reports one. */
     val confidence: Double?,
+    /** How far into the track the sample was, where reported. Used to skip re-checking the same song. */
+    val playOffsetMs: Int? = null,
     val recognizedAt: Long,
 ) {
     fun toMap(): Map<String, Any?> = mapOf(
@@ -28,6 +30,7 @@ data class RecognizedSong(
         "spotifyTrackId" to spotifyTrackId,
         "artworkUrl" to artworkUrl,
         "confidence" to confidence,
+        "playOffsetMs" to playOffsetMs,
         "recognizedAt" to recognizedAt,
     )
 }
@@ -49,4 +52,5 @@ object RecognitionErrorCodes {
     const val QUOTA_EXCEEDED = "QUOTA_EXCEEDED"
     const val PROVIDER_ERROR = "PROVIDER_ERROR"
     const val BUSY = "BUSY"
+    const val LISTENING_ACTIVE = "LISTENING_ACTIVE"
 }

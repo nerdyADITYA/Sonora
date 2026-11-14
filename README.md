@@ -4,14 +4,14 @@
 
 Sonora is an open-source Android app for ambient music recognition. Once you turn listening on, it identifies songs playing around you, keeps a local history, and lets you save them to your streaming service. It's built to feel like a system feature, not an app you have to remember to open.
 
-> **Status: v0.1.0, foundation.** The Flutter UI and the Kotlin bridge are in place. Sonora does **not** use the microphone or recognise music yet; that comes in Phase 2 (recognition prototype) and Phase 3 (background listening).
+> **Status: v0.3.0, ambient listening.** Sonora identifies songs on demand, or keeps listening in the background through a visible foreground service. History (Phase 4) and Spotify playlists (Phase 5) come next.
 
 ## What works today
 
+- **Identify song:** a 10 s capture, fingerprinted on the device and matched by ACRCloud, showing title, artist, album and cover art
+- **Ambient listening:** a user-started foreground service with a persistent notification and a Stop button. It checks for music on a cost-aware schedule (loudness gate, waits out matched songs, backs off on misses, 200 checks a day at most)
 - Dark, One UI-inspired dashboard (Flutter + Riverpod)
-- A Flutter ↔ Kotlin bridge over `MethodChannel` (`dev.sonora/control`) and `EventChannel` (`dev.sonora/events`) with structured responses
-- Device diagnostics reported from native code
-- Listening status reported honestly as unavailable
+- A Flutter ↔ Kotlin bridge over `dev.sonora/control` and `dev.sonora/events` with structured responses
 
 ## Architecture
 
