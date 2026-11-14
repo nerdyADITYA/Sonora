@@ -1,0 +1,61 @@
+package dev.sonora.sonora.bridge
+
+/**
+ * Names shared with the Dart side. Keep in sync with
+ * `lib/core/constants/channel_names.dart` and `docs/ARCHITECTURE.md`.
+ */
+object BridgeContract {
+    const val CONTROL_CHANNEL = "dev.sonora/control"
+    const val EVENTS_CHANNEL = "dev.sonora/events"
+
+    object Methods {
+        const val GET_PLATFORM_INFO = "getPlatformInfo"
+        const val GET_LISTENING_STATUS = "getListeningStatus"
+
+        // Part of the published contract but implemented in later phases.
+        // They answer with NOT_IMPLEMENTED instead of failing silently.
+        const val REQUEST_PERMISSIONS = "requestPermissions"
+        const val START_LISTENING = "startListening"
+        const val STOP_LISTENING = "stopListening"
+        const val GET_RECOGNITION_HISTORY = "getRecognitionHistory"
+        const val CLEAR_RECOGNITION_HISTORY = "clearRecognitionHistory"
+        const val GET_RECOGNITION_SETTINGS = "getRecognitionSettings"
+        const val UPDATE_RECOGNITION_SETTINGS = "updateRecognitionSettings"
+
+        val PLANNED = setOf(
+            REQUEST_PERMISSIONS,
+            START_LISTENING,
+            STOP_LISTENING,
+            GET_RECOGNITION_HISTORY,
+            CLEAR_RECOGNITION_HISTORY,
+            GET_RECOGNITION_SETTINGS,
+            UPDATE_RECOGNITION_SETTINGS,
+        )
+    }
+
+    object Events {
+        const val BRIDGE_CONNECTED = "bridge_connected"
+    }
+}
+
+/** Structured error codes. The UI maps these to copy; raw exception text never crosses the bridge. */
+enum class BridgeErrorCode {
+    NOT_IMPLEMENTED,
+    INVALID_ARGUMENT,
+    INTERNAL_ERROR,
+}
+
+/** Builds the `{ success, data, error }` envelope every method returns. */
+object BridgeResponse {
+    fun success(data: Any? = null): Map<String, Any?> = mapOf(
+        "success" to true,
+        "data" to data,
+        "error" to null,
+    )
+
+    fun failure(code: BridgeErrorCode, message: String): Map<String, Any?> = mapOf(
+        "success" to false,
+        "data" to null,
+        "error" to mapOf("code" to code.name, "message" to message),
+    )
+}
