@@ -9,6 +9,7 @@ import '../models/listening_status.dart';
 import '../models/platform_info.dart';
 import '../models/recognized_song.dart';
 import '../models/sonora_event.dart';
+import '../models/spotify.dart';
 
 final sonoraPlatformProvider = Provider<SonoraPlatform>(
   (ref) => SonoraPlatform(),
@@ -88,6 +89,81 @@ class SonoraPlatform {
       'title': song.title,
       'artist': song.artist,
     });
+  }
+
+  Future<SpotifyStatus> getSpotifyStatus() async =>
+      SpotifyStatus.fromMap(await _invoke(BridgeMethods.getSpotifyStatus));
+
+  /// Opens Spotify's sign-in page in the browser. The outcome arrives later
+  /// as a `spotify_status` event, after the redirect back to Sonora.
+  Future<void> connectSpotify() async {
+    await _invoke(BridgeMethods.connectSpotify);
+  }
+
+  Future<SpotifyStatus> disconnectSpotify() async =>
+      SpotifyStatus.fromMap(await _invoke(BridgeMethods.disconnectSpotify));
+
+  /// Playlists the user owns or collaborates on.
+  Future<SpotifyPlaylistPage> getSpotifyPlaylists() async {
+    final data = await _invoke(BridgeMethods.getSpotifyPlaylists);
+    return SpotifyPlaylistPage(
+      playlists: [
+        for (final p in data['playlists'] as List? ?? const [])
+          SpotifyPlaylist.fromMap((p as Map).cast<String, Object?>()),
+      ],
+      hiddenCount: (data['hiddenCount'] as num?)?.toInt() ?? 0,
+    );
+  }
+
+  Future<SpotifyPlaylist> createSpotifyPlaylist(String name) async =>
+      SpotifyPlaylist.fromMap(
+        await _invoke(BridgeMethods.createSpotifyPlaylist, {'name': name}),
+      );
+
+  Future<SpotifyStatus> setDefaultSpotifyPlaylist(
+    SpotifyPlaylistRef playlist,
+  ) async => SpotifyStatus.fromMap(
+    await _invoke(BridgeMethods.setDefaultSpotifyPlaylist, {
+      'id': playlist.id,
+      'name': playlist.name,
+    }),
+  );
+
+  Future<SpotifyTrackMatch> findSpotifyTrack(int songId) async =>
+      SpotifyTrackMatch.fromMap(
+        await _invoke(BridgeMethods.findSpotifyTrack, {'songId': songId}),
+      );
+
+  /// Adds the song once; a repeat returns [AddToPlaylistResult.alreadyInPlaylist].
+  /// [trackId] is needed only for a search match the user confirmed.
+  Future<AddToPlaylistResult> addToSpotifyPlaylist({
+    required int songId,
+    required SpotifyPlaylistRef playlist,
+    String? trackId,
+  }) async {
+    final data = await _invoke(BridgeMethods.addToSpotifyPlaylist, {
+      'songId': songId,
+      'playlistId': playlist.id,
+      'playlistName': playlist.name,
+      'trackId': trackId,
+    });
+    return AddToPlaylistResult.parse(data['result']);
+  }
+
+  Future<List<PlaylistSyncItem>> getSpotifySyncStatus(int songId) async {
+    final data = await _invoke(BridgeMethods.getSpotifySyncStatus, {
+      'songId': songId,
+    });
+    return [
+      for (final i in data['items'] as List? ?? const [])
+        PlaylistSyncItem.fromMap((i as Map).cast<String, Object?>()),
+    ];
+  }
+
+  /// Retries adds that failed earlier; returns how many succeeded.
+  Future<int> retrySpotifySync() async {
+    final data = await _invoke(BridgeMethods.retrySpotifySync);
+    return (data['retried'] as num?)?.toInt() ?? 0;
   }
 
   /// Broadcast stream of native events; safe to listen to more than once.

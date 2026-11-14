@@ -2,8 +2,9 @@ import 'package:material_ui/material_ui.dart';
 
 import '../features/dashboard/screens/dashboard_screen.dart';
 import '../features/history/screens/history_screen.dart';
+import '../features/settings/screens/settings_screen.dart';
 
-/// Bottom navigation between Home and History. Tabs keep their state.
+/// Bottom navigation between Home, History and Settings. Tabs keep their state.
 class HomeShell extends StatefulWidget {
   const HomeShell({super.key});
 
@@ -19,7 +20,7 @@ class _HomeShellState extends State<HomeShell> {
     return Scaffold(
       body: IndexedStack(
         index: _index,
-        children: const [DashboardScreen(), HistoryScreen()],
+        children: const [DashboardScreen(), HistoryScreen(), SettingsScreen()],
       ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _index,
@@ -31,6 +32,11 @@ class _HomeShellState extends State<HomeShell> {
             label: 'Home',
           ),
           NavigationDestination(icon: Icon(Icons.history), label: 'History'),
+          NavigationDestination(
+            icon: Icon(Icons.settings_outlined),
+            selectedIcon: Icon(Icons.settings),
+            label: 'Settings',
+          ),
         ],
       ),
     );

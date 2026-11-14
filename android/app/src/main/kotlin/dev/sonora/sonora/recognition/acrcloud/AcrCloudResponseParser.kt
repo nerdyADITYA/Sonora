@@ -1,5 +1,8 @@
 package dev.sonora.sonora.recognition.acrcloud
 
+import android.util.Log
+import dev.sonora.sonora.BuildConfig
+import dev.sonora.sonora.recognition.MatchSelector
 import dev.sonora.sonora.recognition.RecognitionErrorCodes
 import dev.sonora.sonora.recognition.RecognitionOutcome
 import dev.sonora.sonora.recognition.RecognizedSong
@@ -12,6 +15,7 @@ import org.json.JSONObject
  */
 object AcrCloudResponseParser {
     const val PROVIDER = "acrcloud"
+    private const val TAG = "AcrCloudParser"
 
     // https://docs.acrcloud.com — status codes
     private const val SUCCESS = 0
@@ -47,10 +51,29 @@ object AcrCloudResponseParser {
     private fun failure(code: String, providerCode: Int) =
         RecognitionOutcome.Failure(code, "ACRCloud status $providerCode.")
 
+    /** Considers every candidate ACRCloud returns; see [MatchSelector] for the rules. */
     private fun parseMatch(root: JSONObject, now: Long): RecognitionOutcome {
-        val music = root.optJSONObject("metadata")?.optJSONArray("music")
-        val best = music?.optJSONObject(0) ?: return RecognitionOutcome.NoMatch
+        val music = root.optJSONObject("metadata")?.optJSONArray("music") ?: return RecognitionOutcome.NoMatch
+        val candidates = (0 until music.length()).mapNotNull { i ->
+            music.optJSONObject(i)?.let { MatchSelector.Candidate(it.toSong(now), it.optInt("score", -1).takeIf { s -> s >= 0 }) }
+        }
+        if (BuildConfig.DEBUG) {
+            // Song metadata only, debug builds only, to tune MatchSelector. Info level:
+            // Samsung builds drop debug-level app logs.
+            candidates.forEachIndexed { i, c ->
+                Log.i(TAG, "candidate $i: ${c.song.title} / ${c.song.artist} (score ${c.score}, released ${c.song.releaseDate})")
+            }
+        }
+        val chosen = MatchSelector.choose(candidates)
+        if (BuildConfig.DEBUG) {
+            Log.i(TAG, chosen?.let { "chosen: ${it.song.title} / ${it.song.artist}, confident=${it.confident}" } ?: "chosen: none")
+        }
+        chosen ?: return RecognitionOutcome.NoMatch
+        return RecognitionOutcome.Match(chosen.song, chosen.confident)
+    }
 
+    private fun JSONObject.toSong(now: Long): RecognizedSong {
+        val best = this
         val artists = best.optJSONArray("artists")
         val artistNames = buildList {
             for (i in 0 until (artists?.length() ?: 0)) {
@@ -62,8 +85,7 @@ object AcrCloudResponseParser {
         val spotifyTrackId = spotify?.optJSONObject("track")?.optStringOrNull("id")
         val spotifyAlbumId = spotify?.optJSONObject("album")?.optStringOrNull("id")
 
-        return RecognitionOutcome.Match(
-            RecognizedSong(
+        return RecognizedSong(
                 provider = PROVIDER,
                 providerId = best.optStringOrNull("acrid") ?: "",
                 title = best.optStringOrNull("title") ?: "Unknown title",
@@ -79,8 +101,7 @@ object AcrCloudResponseParser {
                 confidence = best.optInt("score", -1).takeIf { it >= 0 }?.let { it / 100.0 },
                 playOffsetMs = best.optInt("play_offset_ms", -1).takeIf { it >= 0 },
                 recognizedAt = now,
-            ),
-        )
+            )
     }
 
     private fun JSONObject.optStringOrNull(key: String): String? =

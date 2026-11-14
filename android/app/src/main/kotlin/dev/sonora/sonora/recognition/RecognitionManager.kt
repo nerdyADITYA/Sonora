@@ -1,5 +1,6 @@
 package dev.sonora.sonora.recognition
 
+import dev.sonora.sonora.spotify.SpotifyManager
 import android.content.Context
 import android.os.Handler
 import android.os.Looper
@@ -80,13 +81,14 @@ class RecognitionManager(context: Context) {
 
     /** Adds artwork and saves the match to history (manual matches are never suppressed). */
     private fun withArtwork(match: RecognitionOutcome.Match): RecognitionOutcome.Match {
-        val song = ArtworkResolver.enrich(match.song)
+        // Spotify's usual version first, so the cover matches what the Spotify app shows.
+        val song = ArtworkResolver.enrich(SpotifyManager.get(appContext).preferredVersion(match.song))
         try {
             history.record(song, RecognitionSource.MANUAL)
         } catch (e: Exception) {
             Log.e(TAG, "Could not save recognition", e)
         }
-        return RecognitionOutcome.Match(song)
+        return RecognitionOutcome.Match(song, match.confident)
     }
 
     fun cancel() = audio.cancel()

@@ -150,4 +150,23 @@ class HistoryRepositoryTest {
 
         assertEquals(0, repo.count())
     }
+
+    @Test
+    fun spotifyVersionReplacesReleaseDetailsAndListsNewerSongs() {
+        val first = repo.record(song("a", "God's Plan", artist = "Drake", album = "Scary Hours", artwork = "https://old"), RecognitionSource.MANUAL)
+        val second = repo.record(song("b", "Snowman"), RecognitionSource.MANUAL)
+
+        val stored = repo.songDetail(first.songId)!!.song
+        repo.updateSpotifyVersion(
+            first.songId,
+            stored.copy(album = "Scorpion", artworkUrl = "https://new", spotifyTrackId = "T2", isrc = null),
+        )
+
+        val updated = repo.songDetail(first.songId)!!.song
+        assertEquals("Scorpion", updated.album)
+        assertEquals("https://new", updated.artworkUrl)
+        assertEquals("T2", updated.spotifyTrackId)
+        assertEquals(listOf(second.songId), repo.songsAfter(first.songId).map { it.first })
+        assertEquals(2, repo.songsAfter(0).size)
+    }
 }

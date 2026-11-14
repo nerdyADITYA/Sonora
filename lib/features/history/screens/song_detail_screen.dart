@@ -8,7 +8,43 @@ import '../../../core/models/recognized_song.dart';
 import '../../../core/platform/sonora_platform.dart';
 import '../../../shared/utils/formatting.dart';
 import '../../../shared/widgets/album_artwork.dart';
+import '../../integrations/spotify/add_to_spotify.dart';
+import '../../integrations/spotify/providers/spotify_controller.dart';
 import '../providers/history_providers.dart';
+
+/// Which Spotify playlists this song was saved to, or is waiting to retry.
+class _PlaylistStatus extends ConsumerWidget {
+  const _PlaylistStatus({required this.songId});
+
+  final int songId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    if (!ref.watch(spotifyControllerProvider.select((s) => s.connected))) {
+      return const SizedBox.shrink();
+    }
+    final items =
+        ref.watch(spotifySyncStatusProvider(songId)).value ?? const [];
+    if (items.isEmpty) return const SizedBox.shrink();
+    final style = Theme.of(context).textTheme.bodySmall
+        ?.copyWith(color: AppColors.textSecondary);
+    return Padding(
+      padding: const EdgeInsets.only(top: 12),
+      child: Column(
+        children: [
+          for (final item in items)
+            Text(
+              item.completed
+                  ? '✓ In ${item.playlistName ?? 'a playlist'}'
+                  : 'Waiting to add to ${item.playlistName ?? 'a playlist'}. Retried when you reopen Sonora.',
+              style: style,
+              textAlign: TextAlign.center,
+            ),
+        ],
+      ),
+    );
+  }
+}
 
 /// One song: cover, metadata, and every time it was heard.
 class SongDetailScreen extends ConsumerWidget {
@@ -133,16 +169,26 @@ class SongDetailScreen extends ConsumerWidget {
           const SizedBox(height: 4),
           Text(song.album!, style: secondary, textAlign: TextAlign.center),
         ],
-        if (song.spotifyTrackId != null) ...[
-          const SizedBox(height: 20),
-          Center(
-            child: FilledButton.icon(
-              onPressed: () => _openInSpotify(context, ref, song),
-              icon: const Icon(Icons.open_in_new),
-              label: const Text('Open in Spotify'),
+        const SizedBox(height: 20),
+        Wrap(
+          alignment: WrapAlignment.center,
+          spacing: 12,
+          runSpacing: 8,
+          children: [
+            FilledButton.icon(
+              onPressed: () => addSongToSpotify(context, ref, songId),
+              icon: const Icon(Icons.playlist_add),
+              label: const Text('Add to playlist'),
             ),
-          ),
-        ],
+            if (song.spotifyTrackId != null)
+              OutlinedButton.icon(
+                onPressed: () => _openInSpotify(context, ref, song),
+                icon: const Icon(Icons.open_in_new),
+                label: const Text('Open in Spotify'),
+              ),
+          ],
+        ),
+        _PlaylistStatus(songId: songId),
         const SizedBox(height: 24),
         Card(
           child: Padding(

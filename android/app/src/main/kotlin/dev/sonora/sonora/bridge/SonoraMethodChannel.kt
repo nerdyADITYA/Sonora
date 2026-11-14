@@ -17,6 +17,8 @@ import dev.sonora.sonora.recognition.RecognitionManager
 import dev.sonora.sonora.recognition.RecognitionOutcome
 import dev.sonora.sonora.recognition.SpotifyLinks
 import dev.sonora.sonora.services.ServiceStateManager
+import dev.sonora.sonora.spotify.SpotifyException
+import dev.sonora.sonora.spotify.SpotifyManager
 import dev.sonora.sonora.services.SonoraRecognitionService
 import io.flutter.plugin.common.BinaryMessenger
 import io.flutter.plugin.common.MethodCall
@@ -44,6 +46,8 @@ class SonoraMethodChannel(
     private val channel = MethodChannel(messenger, BridgeContract.CONTROL_CHANNEL)
     private val history = HistoryRepository.get(context)
     private val databaseExecutor = Executors.newSingleThreadExecutor { Thread(it, "sonora-history") }
+    private val networkExecutor = Executors.newSingleThreadExecutor { Thread(it, "sonora-spotify") }
+    private val spotify = SpotifyManager.get(context)
     private val mainHandler = Handler(Looper.getMainLooper())
 
     fun register() = channel.setMethodCallHandler(this)
@@ -51,6 +55,7 @@ class SonoraMethodChannel(
     fun unregister() {
         channel.setMethodCallHandler(null)
         databaseExecutor.shutdown()
+        networkExecutor.shutdown()
     }
 
     override fun onMethodCall(call: MethodCall, result: MethodChannel.Result) {
@@ -107,6 +112,64 @@ class SonoraMethodChannel(
                     openInSpotify(call.argument<String>("title"), call.argument<String>("artist")),
                 )
 
+                BridgeContract.Methods.GET_SPOTIFY_STATUS ->
+                    result.success(BridgeResponse.success(spotify.status()))
+
+                BridgeContract.Methods.CONNECT_SPOTIFY -> result.success(connectSpotify())
+
+                BridgeContract.Methods.DISCONNECT_SPOTIFY -> onNetwork(result) {
+                    spotify.signOut()
+                    BridgeResponse.success(spotify.status())
+                }
+
+                BridgeContract.Methods.GET_SPOTIFY_PLAYLISTS -> onNetwork(result) {
+                    val page = spotify.playlists()
+                    BridgeResponse.success(
+                        mapOf("playlists" to page.editable.map { it.toMap() }, "hiddenCount" to page.hiddenCount),
+                    )
+                }
+
+                BridgeContract.Methods.CREATE_SPOTIFY_PLAYLIST -> {
+                    val name = call.argument<String>("name")?.trim()?.takeIf { it.isNotEmpty() && it.length <= 100 }
+                        ?: return result.success(invalid("name"))
+                    onNetwork(result) { BridgeResponse.success(spotify.createPlaylist(name).toMap()) }
+                }
+
+                BridgeContract.Methods.SET_DEFAULT_SPOTIFY_PLAYLIST -> {
+                    val id = call.argument<String>("id") ?: return result.success(invalid("id"))
+                    val name = call.argument<String>("name") ?: return result.success(invalid("name"))
+                    spotify.setDefaultPlaylist(id, name)
+                    result.success(BridgeResponse.success(spotify.status()))
+                }
+
+                BridgeContract.Methods.FIND_SPOTIFY_TRACK -> {
+                    val songId = call.longArgument("songId") ?: return result.success(invalid("songId"))
+                    onNetwork(result) { BridgeResponse.success(spotify.findTrack(songId)) }
+                }
+
+                BridgeContract.Methods.ADD_TO_SPOTIFY_PLAYLIST -> {
+                    val songId = call.longArgument("songId") ?: return result.success(invalid("songId"))
+                    val playlistId = call.argument<String>("playlistId") ?: return result.success(invalid("playlistId"))
+                    onNetwork(result) {
+                        val added = spotify.addSong(
+                            songId,
+                            playlistId,
+                            call.argument<String>("playlistName"),
+                            call.argument<String>("trackId"),
+                        )
+                        BridgeResponse.success(mapOf("result" to added.wire))
+                    }
+                }
+
+                BridgeContract.Methods.GET_SPOTIFY_SYNC_STATUS -> {
+                    val songId = call.longArgument("songId") ?: return result.success(invalid("songId"))
+                    onDatabase(result) { BridgeResponse.success(mapOf("items" to spotify.syncStatusForSong(songId))) }
+                }
+
+                BridgeContract.Methods.RETRY_SPOTIFY_SYNC -> onNetwork(result) {
+                    BridgeResponse.success(mapOf("retried" to spotify.retryFailed(), "updated" to spotify.refreshVersions()))
+                }
+
                 BridgeContract.Methods.STOP_LISTENING -> {
                     SonoraRecognitionService.stop(context)
                     result.success(BridgeResponse.success())
@@ -137,6 +200,32 @@ class SonoraMethodChannel(
                 BridgeResponse.failure(BridgeErrorCode.INTERNAL_ERROR, "Native error while handling ${call.method}."),
             )
         }
+    }
+
+    /** Runs a Spotify call on the network thread; Spotify errors keep their codes. */
+    private fun onNetwork(result: MethodChannel.Result, block: () -> Map<String, Any?>) {
+        networkExecutor.execute {
+            val response = try {
+                block()
+            } catch (e: SpotifyException) {
+                BridgeResponse.failure(e.code, e.message ?: "Spotify error.")
+            } catch (e: Exception) {
+                Log.e(TAG, "Spotify operation failed", e)
+                BridgeResponse.failure(BridgeErrorCode.INTERNAL_ERROR, "Spotify operation failed.")
+            }
+            mainHandler.post { result.success(response) }
+        }
+    }
+
+    /** Opens Spotify's sign-in page in the browser; the redirect returns to MainActivity. */
+    private fun connectSpotify(): Map<String, Any?> = try {
+        val url = spotify.beginSignIn()
+        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        BridgeResponse.success()
+    } catch (e: SpotifyException) {
+        BridgeResponse.failure(e.code, e.message ?: "Spotify isn't configured.")
+    } catch (e: ActivityNotFoundException) {
+        BridgeResponse.failure(NO_APP, "No browser available for Spotify sign-in.")
     }
 
     /** Runs [block] on the database thread and replies on the main thread. */
@@ -193,7 +282,12 @@ class SonoraMethodChannel(
         recognition.recognizeOnce { outcome, elapsedMs ->
             val response = when (outcome) {
                 is RecognitionOutcome.Match -> BridgeResponse.success(
-                    mapOf("matched" to true, "song" to outcome.song.toMap(), "elapsedMs" to elapsedMs),
+                    mapOf(
+                        "matched" to true,
+                        "song" to outcome.song.toMap(),
+                        "confident" to outcome.confident,
+                        "elapsedMs" to elapsedMs,
+                    ),
                 )
                 RecognitionOutcome.NoMatch -> BridgeResponse.success(
                     mapOf("matched" to false, "song" to null, "elapsedMs" to elapsedMs),

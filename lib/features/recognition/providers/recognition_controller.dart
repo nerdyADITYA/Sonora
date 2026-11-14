@@ -23,6 +23,7 @@ class RecognitionState {
     this.lastSong,
     this.errorCode,
     this.elapsed,
+    this.confident = true,
   });
 
   final RecognitionPhase phase;
@@ -33,6 +34,9 @@ class RecognitionState {
   /// A [PlatformFailure] code, or `PERMISSION_DENIED` / `PERMISSION_PERMANENTLY_DENIED`.
   final String? errorCode;
   final Duration? elapsed;
+
+  /// False when the last match had a low score.
+  final bool confident;
 
   bool get isBusy => switch (phase) {
     RecognitionPhase.requestingPermission ||
@@ -46,11 +50,13 @@ class RecognitionState {
     RecognizedSong? song,
     String? errorCode,
     Duration? elapsed,
+    bool confident = true,
   }) => RecognitionState(
     phase: phase,
     lastSong: song ?? lastSong,
     errorCode: errorCode,
     elapsed: elapsed,
+    confident: confident,
   );
 }
 
@@ -115,6 +121,7 @@ class RecognitionController extends Notifier<RecognitionState> {
               RecognitionPhase.matched,
               song: attempt.song,
               elapsed: attempt.elapsed,
+              confident: attempt.confident,
             )
           : state.next(RecognitionPhase.noMatch, elapsed: attempt.elapsed);
     } on PlatformFailure catch (failure) {

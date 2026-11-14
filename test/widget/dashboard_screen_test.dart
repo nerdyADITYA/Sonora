@@ -183,4 +183,24 @@ void main() {
 
     expect(find.text('Paused for today'), findsOneWidget);
   });
+
+  testWidgets('a low-confidence manual match is flagged as possible', (
+    tester,
+  ) async {
+    await pumpSonora(
+      tester,
+      FakePlatform(
+        attempt: RecognitionAttempt(
+          song: _song,
+          elapsed: const Duration(seconds: 11),
+          confident: false,
+        ),
+      ),
+    );
+
+    await _tapIdentify(tester);
+
+    expect(find.text('Possible match'), findsOneWidget);
+    expect(find.textContaining('isn’t sure'), findsOneWidget);
+  });
 }

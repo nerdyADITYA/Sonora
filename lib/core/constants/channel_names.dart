@@ -20,6 +20,16 @@ abstract final class BridgeMethods {
   static const deleteSong = 'deleteSong';
   static const clearRecognitionHistory = 'clearRecognitionHistory';
   static const openInSpotify = 'openInSpotify';
+  static const getSpotifyStatus = 'getSpotifyStatus';
+  static const connectSpotify = 'connectSpotify';
+  static const disconnectSpotify = 'disconnectSpotify';
+  static const getSpotifyPlaylists = 'getSpotifyPlaylists';
+  static const createSpotifyPlaylist = 'createSpotifyPlaylist';
+  static const setDefaultSpotifyPlaylist = 'setDefaultSpotifyPlaylist';
+  static const findSpotifyTrack = 'findSpotifyTrack';
+  static const addToSpotifyPlaylist = 'addToSpotifyPlaylist';
+  static const getSpotifySyncStatus = 'getSpotifySyncStatus';
+  static const retrySpotifySync = 'retrySpotifySync';
 }
 
 abstract final class BridgeEventTypes {
@@ -29,4 +39,5 @@ abstract final class BridgeEventTypes {
   static const listeningStatus = 'listening_status';
   static const songRecognized = 'song_recognized';
   static const historyChanged = 'history_changed';
+  static const spotifyStatus = 'spotify_status';
 }

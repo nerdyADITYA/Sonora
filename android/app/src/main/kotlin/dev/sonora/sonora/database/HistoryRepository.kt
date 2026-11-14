@@ -66,6 +66,50 @@ class HistoryRepository internal constructor(private val database: SonoraDatabas
         notifyChanged()
     }
 
+    /** Saves a Spotify match the user confirmed, so it's never searched for again. */
+    @Synchronized
+    fun updateSpotifyTrackId(songId: Long, trackId: String) {
+        database.writableDatabase.update(
+            "songs",
+            ContentValues().apply { put("spotify_track_id", trackId) },
+            "id = ?",
+            arrayOf(songId.toString()),
+        )
+        notifyChanged()
+    }
+
+    /**
+     * Replaces the release details with another version of the same song
+     * (album, cover, Spotify IDs). Null values clear the old version's data.
+     */
+    @Synchronized
+    fun updateSpotifyVersion(songId: Long, song: RecognizedSong) {
+        database.writableDatabase.update(
+            "songs",
+            ContentValues().apply {
+                put("spotify_track_id", song.spotifyTrackId)
+                put("spotify_album_id", song.spotifyAlbumId)
+                put("album", song.album)
+                put("release_date", song.releaseDate)
+                put("isrc", song.isrc)
+                put("artwork_url", song.artworkUrl)
+                put("updated_at", System.currentTimeMillis())
+            },
+            "id = ?",
+            arrayOf(songId.toString()),
+        )
+        notifyChanged()
+    }
+
+    /** Songs with an ID above [songId], oldest first. */
+    fun songsAfter(songId: Long): List<Pair<Long, RecognizedSong>> {
+        val ids = database.readableDatabase.rawQuery(
+            "SELECT id FROM songs WHERE id > ? ORDER BY id",
+            arrayOf(songId.toString()),
+        ).use { cursor -> buildList { while (cursor.moveToNext()) add(cursor.getLong(0)) } }
+        return ids.mapNotNull { id -> songDetail(id)?.let { id to it.song } }
+    }
+
     fun history(
         query: String? = null,
         sort: HistorySort = HistorySort.NEWEST,
@@ -220,7 +264,7 @@ class HistoryRepository internal constructor(private val database: SonoraDatabas
         /** Process-wide instance shared by the service and the bridge. */
         fun get(context: Context): HistoryRepository =
             instance ?: synchronized(this) {
-                instance ?: HistoryRepository(SonoraDatabase(context)).also { instance = it }
+                instance ?: HistoryRepository(SonoraDatabase.shared(context)).also { instance = it }
             }
     }
 }

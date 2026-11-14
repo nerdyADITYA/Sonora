@@ -1,12 +1,17 @@
 package dev.sonora.sonora
 
 import android.Manifest
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
+import android.os.Bundle
 import dev.sonora.sonora.bridge.PermissionRequester
 import dev.sonora.sonora.bridge.SonoraEventChannel
 import dev.sonora.sonora.bridge.SonoraMethodChannel
 import dev.sonora.sonora.recognition.RecognitionManager
+import dev.sonora.sonora.spotify.SpotifyException
+import dev.sonora.sonora.spotify.SpotifyManager
+import java.util.concurrent.Executors
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 
@@ -23,6 +28,32 @@ class MainActivity : FlutterActivity(), PermissionRequester {
     private var eventChannel: SonoraEventChannel? = null
     private var recognition: RecognitionManager? = null
     private var pendingPermissionResult: ((Map<String, String>) -> Unit)? = null
+    private val signInExecutor = Executors.newSingleThreadExecutor()
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        handleSpotifyRedirect(intent)
+    }
+
+    // launchMode is singleTop, so the Spotify redirect usually arrives here.
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        handleSpotifyRedirect(intent)
+    }
+
+    /** Finishes Spotify sign-in off the main thread; the result reaches Flutter as `spotify_status`. */
+    private fun handleSpotifyRedirect(intent: Intent?) {
+        val uri = intent?.data ?: return
+        if (!SpotifyManager.isRedirect(uri)) return
+        setIntent(Intent(intent).setData(null)) // Don't run it again after a configuration change.
+        signInExecutor.execute {
+            try {
+                SpotifyManager.get(applicationContext).completeSignIn(uri)
+            } catch (e: SpotifyException) {
+                // Already published as a spotify_status event carrying the error code.
+            }
+        }
+    }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)

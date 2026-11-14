@@ -48,6 +48,8 @@ android {
         buildConfigField("String", "ACRCLOUD_HOST", "\"${localProperty("acrcloud.host")}\"")
         buildConfigField("String", "ACRCLOUD_ACCESS_KEY", "\"${localProperty("acrcloud.accessKey")}\"")
         buildConfigField("String", "ACRCLOUD_ACCESS_SECRET", "\"${localProperty("acrcloud.accessSecret")}\"")
+        // Spotify uses PKCE, so only the (non-secret) Client ID is needed.
+        buildConfigField("String", "SPOTIFY_CLIENT_ID", "\"${localProperty("spotify.clientId")}\"")
     }
 
     sourceSets {

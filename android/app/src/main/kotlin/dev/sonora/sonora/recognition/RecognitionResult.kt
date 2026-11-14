@@ -39,7 +39,8 @@ data class RecognizedSong(
 }
 
 sealed interface RecognitionOutcome {
-    data class Match(val song: RecognizedSong) : RecognitionOutcome
+    /** [confident] is false for a 50–69 score: ambient listening waits for a second sample to agree. */
+    data class Match(val song: RecognizedSong, val confident: Boolean = true) : RecognitionOutcome
 
     data object NoMatch : RecognitionOutcome
 

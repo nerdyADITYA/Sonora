@@ -55,7 +55,11 @@ class RecognizedSong {
 
 /// Outcome of a successful `recognizeOnce` call (a match or a clean no-match).
 class RecognitionAttempt {
-  const RecognitionAttempt({required this.song, required this.elapsed});
+  const RecognitionAttempt({
+    required this.song,
+    required this.elapsed,
+    this.confident = true,
+  });
 
   factory RecognitionAttempt.fromMap(Map<String, Object?> map) {
     final song = map['song'];
@@ -64,11 +68,15 @@ class RecognitionAttempt {
           ? RecognizedSong.fromMap(song.cast<String, Object?>())
           : null,
       elapsed: Duration(milliseconds: (map['elapsedMs'] as num?)?.toInt() ?? 0),
+      confident: map['confident'] as bool? ?? true,
     );
   }
 
   final RecognizedSong? song;
   final Duration elapsed;
+
+  /// False for a low-score (50–69) match: shown, but flagged as uncertain.
+  final bool confident;
 
   bool get matched => song != null;
 }

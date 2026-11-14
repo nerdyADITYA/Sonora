@@ -4,13 +4,15 @@
 
 Sonora is an open-source Android app for ambient music recognition. Once you turn listening on, it identifies songs playing around you, keeps a local history, and lets you save them to your streaming service. It's built to feel like a system feature, not an app you have to remember to open.
 
-> **Status: v0.4.0, history.** Sonora identifies songs on demand or in the background, and keeps a searchable history on your phone. Spotify playlists (Phase 5) come next.
+> **Status: v0.5.0, Spotify playlists.** Sonora identifies songs on demand or in the background, keeps a searchable history on your phone, and adds songs to your Spotify playlists.
 
 ## What works today
 
 - **Identify song:** a 10 s capture, fingerprinted on the device and matched by ACRCloud, showing title, artist, album and cover art
 - **Ambient listening:** a user-started foreground service with a persistent notification and a Stop button. It checks for music on a cost-aware schedule (loudness gate, waits out matched songs, backs off on misses, 200 checks a day at most)
 - **History:** every recognition saved locally (SQLite), grouped by day, with search, sorting, swipe-to-delete, clear-all, and a detail page per song (cover, times heard, ISRC, Open in Spotify)
+- **Spotify:** sign in with PKCE (no client secret), pick or create a playlist, and add songs from History. Each song is added to a playlist at most once, and failed adds are retried. When Spotify is connected, Sonora uses the release Spotify usually shows, so covers match the Spotify app
+- **Match quality:** weak matches (below 50%) are rejected; 50–69% matches are re-checked by ambient listening or shown as "Possible match"
 - Dark, One UI-inspired dashboard (Flutter + Riverpod)
 - A Flutter ↔ Kotlin bridge over `dev.sonora/control` and `dev.sonora/events` with structured responses
 
@@ -41,7 +43,7 @@ flutter run            # with a device connected over USB
 
 ## Privacy
 
-Sonora is designed around these rules: no permanent audio recordings, in-memory buffers only, a visible indicator and stop control whenever it's listening, and clear disclosure of any recognition provider that receives audio-derived data. Recognition sends ACRCloud an audio **fingerprint**, never the recording. After a match, Sonora looks up album artwork by sending the Spotify track ID to Spotify's public oEmbed endpoint, or the title and artist to the iTunes Search API. No audio is involved.
+Sonora is designed around these rules: no permanent audio recordings, in-memory buffers only, a visible indicator and stop control whenever it's listening, and clear disclosure of any recognition provider that receives audio-derived data. Recognition sends ACRCloud an audio **fingerprint**, never the recording. After a match, Sonora looks up album artwork by sending the Spotify track ID to Spotify's public oEmbed endpoint, or the title and artist to the iTunes Search API. No audio is involved. With Spotify connected, Sonora searches Spotify by title and artist to find the usual release, and adds songs only when you ask. Spotify tokens are encrypted with an Android Keystore key and never leave the native layer.
 
 ## License
 

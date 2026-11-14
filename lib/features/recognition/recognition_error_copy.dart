@@ -18,5 +18,14 @@ String? recognitionErrorDetail(String? code) => switch (code) {
   'LISTENING_ACTIVE' =>
     'Ambient listening is on, so songs are identified automatically.',
   'FOREGROUND_NOT_ALLOWED' => 'Android only allows listening to start while Sonora is open. Open the app and try again.',
+  'SPOTIFY_NOT_CONFIGURED' => 'This build has no Spotify Client ID. Add spotify.clientId to android/local.properties.',
+  'SPOTIFY_NOT_CONNECTED' => 'Connect your Spotify account in Settings first.',
+  'SPOTIFY_AUTH_CANCELLED' => 'Spotify sign-in was cancelled.',
+  'SPOTIFY_AUTH_FAILED' => "Spotify sign-in didn't complete. Try again.",
+  'SPOTIFY_FORBIDDEN' => 'Spotify refused the request. Make sure your account is added under User Management in the Spotify dashboard.',
+  'SPOTIFY_RATE_LIMITED' =>
+    'Spotify is limiting requests. Try again in a minute.',
+  'SPOTIFY_TRACK_NOT_FOUND' => "Couldn't find this song on Spotify.",
+  'SPOTIFY_API_ERROR' => 'Spotify returned an error. Try again later.',
   final other => 'Error code: $other',
 };

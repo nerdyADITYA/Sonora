@@ -24,6 +24,16 @@ object BridgeContract {
         const val DELETE_SONG = "deleteSong"
         const val CLEAR_RECOGNITION_HISTORY = "clearRecognitionHistory"
         const val OPEN_IN_SPOTIFY = "openInSpotify"
+        const val GET_SPOTIFY_STATUS = "getSpotifyStatus"
+        const val CONNECT_SPOTIFY = "connectSpotify"
+        const val DISCONNECT_SPOTIFY = "disconnectSpotify"
+        const val GET_SPOTIFY_PLAYLISTS = "getSpotifyPlaylists"
+        const val CREATE_SPOTIFY_PLAYLIST = "createSpotifyPlaylist"
+        const val SET_DEFAULT_SPOTIFY_PLAYLIST = "setDefaultSpotifyPlaylist"
+        const val FIND_SPOTIFY_TRACK = "findSpotifyTrack"
+        const val ADD_TO_SPOTIFY_PLAYLIST = "addToSpotifyPlaylist"
+        const val GET_SPOTIFY_SYNC_STATUS = "getSpotifySyncStatus"
+        const val RETRY_SPOTIFY_SYNC = "retrySpotifySync"
 
         // Part of the published contract but implemented in later phases.
         // They answer with NOT_IMPLEMENTED instead of failing silently.
@@ -43,6 +53,7 @@ object BridgeContract {
         const val LISTENING_STATUS = "listening_status"
         const val SONG_RECOGNIZED = "song_recognized"
         const val HISTORY_CHANGED = "history_changed"
+        const val SPOTIFY_STATUS = "spotify_status"
     }
 }
 

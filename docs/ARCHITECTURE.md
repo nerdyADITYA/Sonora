@@ -48,6 +48,16 @@ Error codes: `NOT_IMPLEMENTED`, `INVALID_ARGUMENT`, `INTERNAL_ERROR` (native), p
 | `deleteSong` | v0.4.0 | args `songId`; removes the song and all its recognitions |
 | `clearRecognitionHistory` | v0.4.0 | deletes all history |
 | `openInSpotify` | v0.4.0 | args `title`, `artist`. Opens `open.spotify.com/search/<title artist>`, which shows the song in the Spotify app (or the browser) **without playing it**. Track and album links autoplay, and ACRCloud's album ID can be a compilation |
+| `getSpotifyStatus` | v0.5.0 | `configured, connected, displayName?, defaultPlaylist?: {id, name}` |
+| `connectSpotify` | v0.5.0 | none. Opens Spotify sign-in in the browser; the result arrives as a `spotify_status` event |
+| `disconnectSpotify` | v0.5.0 | Spotify status. Deletes the stored tokens |
+| `getSpotifyPlaylists` | v0.5.0 | `playlists: [{id, name, trackCount, imageUrl?}]` (owned or collaborative only), `hiddenCount` (followed playlists another account owns) |
+| `createSpotifyPlaylist` | v0.5.0 | args `name`. Returns the new playlist (private) |
+| `setDefaultSpotifyPlaylist` | v0.5.0 | args `id`, `name`. Returns Spotify status |
+| `findSpotifyTrack` | v0.5.0 | args `songId`. `trackId, title, artist, album?, confirmed`; `confirmed: false` means a search result the user must approve |
+| `addToSpotifyPlaylist` | v0.5.0 | args `songId, playlistId, playlistName?, trackId?`. `result: "added" \| "already_in_playlist"` |
+| `getSpotifySyncStatus` | v0.5.0 | args `songId`. `items: PlaylistSyncItem[]` |
+| `retrySpotifySync` | v0.5.0 | `retried` (failed adds pushed again), `updated` (songs switched to Spotify's usual release) |
 | `getRecognitionSettings`, `updateRecognitionSettings` | planned | currently return `NOT_IMPLEMENTED` |
 
 `HistoryEntry`: `eventId, songId, source ("manual" | "ambient"), recognizedAt, song: RecognizedSong`.
@@ -55,6 +65,10 @@ Error codes: `NOT_IMPLEMENTED`, `INVALID_ARGUMENT`, `INTERNAL_ERROR` (native), p
 `RecognizedSong`: `provider, providerId, title, artist, album?, releaseDate?, durationMs?, isrc?, spotifyTrackId?, artworkUrl?, confidence? (0–1), recognizedAt (epoch ms)`.
 
 Recognition error codes: `PERMISSION_REQUIRED`, `MICROPHONE_UNAVAILABLE`, `MICROPHONE_SILENT` (privacy toggle on), `CANCELLED`, `BUSY`, `NOT_CONFIGURED`, `PROVIDER_UNAVAILABLE` (built without the SDK), `NETWORK_UNAVAILABLE`, `INVALID_CREDENTIALS`, `QUOTA_EXCEEDED`, `PROVIDER_ERROR`, `LISTENING_ACTIVE` (manual recognition while ambient listening is on), `FOREGROUND_NOT_ALLOWED` (service start refused by Android).
+
+`recognizeOnce` also returns `confident`: false for a 50–69% match, which the app shows as "Possible match".
+
+Spotify error codes: `SPOTIFY_NOT_CONFIGURED`, `SPOTIFY_NOT_CONNECTED`, `SPOTIFY_AUTH_CANCELLED`, `SPOTIFY_AUTH_FAILED`, `SPOTIFY_RATE_LIMITED`, `SPOTIFY_FORBIDDEN` (account not under User Management, or the owner lacks Premium), `SPOTIFY_TRACK_NOT_FOUND`, `SPOTIFY_NEEDS_MATCH`, `SPOTIFY_API_ERROR`; network failures use `NETWORK_UNAVAILABLE`.
 
 Listening phases (`phase`): `stopped`, `waiting`, `listening`, `matching`, `paused_budget`, `microphone_blocked`.
 
@@ -71,6 +85,7 @@ Envelope: `{ "type": String, "timestamp": epochMillis, "data": Map? }`
 | `recognition_matching` | v0.2.0 | capture is done and the fingerprint is being matched |
 | `listening_status` | v0.3.0 | the service's state changes. `data` is the same map as `getListeningStatus` |
 | `history_changed` | v0.4.0 | history was added to, edited or deleted; lists reload |
+| `spotify_status` | v0.5.0 | Spotify sign-in finished, failed (`error`), or the connection or default playlist changed. `data` is the same map as `getSpotifyStatus` |
 | `song_recognized` | v0.3.0 | ambient listening found a new song (duplicates are suppressed). `data` is a `RecognizedSong` |
 
 ## Recognition (native)
@@ -83,6 +98,10 @@ RecognitionManager ── AudioCaptureManager (AudioRecord, 44.1 kHz PCM16 mono,
                 └── stub engine                 (src/noAcrcloud/kotlin, returns PROVIDER_UNAVAILABLE)
 ```
 
+### Choosing a match
+
+ACRCloud can return several candidates. `MatchSelector` drops any below 50, takes the best, and among candidates with the same title within 10 points prefers the earliest release (so a compilation doesn't win). A best score of 70 or more is accepted. Between 50 and 69, ambient listening holds the match and listens again about 20 s later, saving it only if the second sample names the same title and primary artist within 3 minutes. Real scores seen on a Galaxy S24 Ultra: correct matches 58–100, wrong ones 28 and 64.
+
 ## History (Phase 4)
 
 `HistoryRepository` (Kotlin) owns a plain SQLite database, `sonora.db`, through `SQLiteOpenHelper`. Room was considered but not used: it would add the KSP processor and three dependencies that must track AGP 9 and Kotlin versions, which isn't worth it for two tables. Migrations go in `SonoraDatabase.onUpgrade`.
@@ -92,7 +111,17 @@ RecognitionManager ── AudioCaptureManager (AudioRecord, 44.1 kHz PCM16 mono,
 | `songs` | One row per distinct song. `song_key` is unique: provider track ID, else ISRC, else normalised title and artist (`SongKeys`). Later matches fill in missing metadata but never blank out known fields |
 | `recognition_events` | One row per recognition: `recognized_at`, `provider`, `confidence`, `recognition_mode` (`online`), `source` (`manual` / `ambient`). Deleting a song cascades here |
 
-Ambient matches are saved with a 15-minute suppression window checked in the database, so a song still playing after an app restart isn't saved or announced twice. Manual matches are always saved. Artwork is looked up once per song and stored. `songs.spotify_album_id` (schema v2) is stored for later Spotify features. Flutter reads history only through the bridge, and the native side emits `history_changed` after every write.
+Ambient matches are saved with a 15-minute suppression window checked in the database, so a song still playing after an app restart isn't saved or announced twice. Manual matches are always saved. Artwork is looked up once per song and stored. `songs.spotify_album_id` was added in schema v2. Flutter reads history only through the bridge, and the native side emits `history_changed` after every write.
+
+## Spotify (Phase 5)
+
+Native code in `spotify/` owns everything; Flutter never sees a token.
+
+- **Sign-in:** Authorization Code with PKCE and redirect `sonora://spotify-callback`, caught by `MainActivity` (singleTop). No client secret exists in the app. Tokens are AES-256-GCM encrypted with an Android Keystore key (`SecureTokenStorage`) and excluded from backup. Access tokens refresh automatically; a 401 retries once.
+- **API:** the February 2026 endpoints (`/me/playlists`, `POST /me/playlists`, `/playlists/{id}/items`). The app is in Development Mode, so up to 5 users listed under User Management, and the owner needs Premium.
+- **Playlists:** Spotify only allows adds to playlists the signed-in account owns or that are collaborative. Others are counted in `hiddenCount` and the picker explains why they're missing.
+- **Which track:** many songs exist on Spotify more than once (EP, album, deluxe). When connected, `SpotifyManager.preferredVersion` searches Spotify by title and primary artist and `SpotifyVersionPicker` takes the most popular exact match (or Spotify's top result when popularity isn't returned). Its album, release date, cover and track ID replace ACRCloud's before the song is saved; covers, remixes and other artists are never chosen. Songs saved earlier, or while disconnected, are updated by `refreshVersions` on the next app resume. Without a stored track ID, adding searches Spotify and the user confirms the match.
+- **Adds:** `playlist_sync_queue` (schema v3) has one row per song and playlist (`UNIQUE(song_id, provider, playlist_id)`) with `pending`/`completed`/`failed`, attempts and the last error. Before adding, Sonora checks the playlist so a song is never added twice. Failed adds are retried (up to 5 attempts) whenever the app resumes while connected.
 
 ## Ambient listening (Phase 3)
 

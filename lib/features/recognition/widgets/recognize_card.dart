@@ -100,6 +100,11 @@ class RecognizeCard extends ConsumerWidget {
         AppColors.accent,
       ),
       RecognitionPhase.matching => ('Matching…', null, AppColors.accent),
+      RecognitionPhase.matched when !state.confident => (
+        'Possible match',
+        'Took $seconds s. Sonora isn’t sure about this one, so check it below and delete it from History if it’s wrong.',
+        AppColors.warning,
+      ),
       RecognitionPhase.matched => (
         'Found it',
         'Took $seconds s.',

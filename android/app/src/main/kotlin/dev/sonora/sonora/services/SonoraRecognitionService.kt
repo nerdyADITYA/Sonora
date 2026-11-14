@@ -18,6 +18,8 @@ import dev.sonora.sonora.database.HistoryRepository
 import dev.sonora.sonora.database.RecognitionSource
 import dev.sonora.sonora.notifications.RecognitionNotificationManager
 import dev.sonora.sonora.recognition.ArtworkResolver
+import dev.sonora.sonora.spotify.SpotifyManager
+import dev.sonora.sonora.recognition.MatchSelector
 import dev.sonora.sonora.recognition.RecognitionEngine
 import dev.sonora.sonora.recognition.RecognitionEngineFactory
 import dev.sonora.sonora.recognition.RecognitionErrorCodes
@@ -50,6 +52,9 @@ class SonoraRecognitionService : Service() {
     @Volatile
     private var running = false
     private var consecutiveNoMatches = 0
+
+    /** A 50–69 score match waiting for a second sample to agree, and when it was heard. */
+    private var unconfirmed: Pair<RecognizedSong, Long>? = null
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -184,8 +189,21 @@ class SonoraRecognitionService : Service() {
             is RecognitionOutcome.Match -> {
                 consecutiveNoMatches = 0
                 val song = outcome.song
-                saveAndAnnounce(song)
-                schedule(ListeningPolicy.delayAfterMatch(song.durationMs, song.playOffsetMs))
+                val now = System.currentTimeMillis()
+                val pending = unconfirmed?.takeIf { now - it.second < ListeningPolicy.CONFIRM_WINDOW_MS }?.first
+                when {
+                    // Confident, or a second sample agreeing with an earlier uncertain one.
+                    outcome.confident || (pending != null && MatchSelector.confirms(pending, song)) -> {
+                        unconfirmed = null
+                        saveAndAnnounce(song)
+                        schedule(ListeningPolicy.delayAfterMatch(song.durationMs, song.playOffsetMs))
+                    }
+                    // Uncertain: hold it and listen again soon instead of saving a possible wrong song.
+                    else -> {
+                        unconfirmed = song to now
+                        schedule(ListeningPolicy.CONFIRM_DELAY_MS)
+                    }
+                }
             }
             RecognitionOutcome.NoMatch -> {
                 consecutiveNoMatches++
@@ -210,7 +228,9 @@ class SonoraRecognitionService : Service() {
      * window (checked in the database, so it survives restarts), then
      * announces it. Artwork is fetched only for songs that don't have it yet.
      */
-    private fun saveAndAnnounce(song: RecognizedSong) {
+    private fun saveAndAnnounce(heard: RecognizedSong) {
+        // Spotify's usual version first, so the cover matches what the Spotify app shows.
+        val song = SpotifyManager.get(this).preferredVersion(heard)
         val recorded = try {
             history.record(song, RecognitionSource.AMBIENT, ListeningPolicy.DUPLICATE_WINDOW_MS)
         } catch (e: Exception) {

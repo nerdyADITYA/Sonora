@@ -32,6 +32,12 @@ object ListeningPolicy {
     const val AFTER_MATCH_DEFAULT_DELAY_MS = 120_000L
     const val SONG_END_MARGIN_MS = 5_000L
 
+    /** A 50–69 score match is re-checked this soon; a second agreeing sample confirms it. */
+    const val CONFIRM_DELAY_MS = 20_000L
+
+    /** An unconfirmed match expires if no agreeing sample arrives within this time. */
+    const val CONFIRM_WINDOW_MS = 3 * 60_000L
+
     /** Same track again within this window is not re-announced or re-saved (checked in the database). */
     const val DUPLICATE_WINDOW_MS = 15 * 60_000L
 
