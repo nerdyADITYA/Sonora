@@ -1,6 +1,6 @@
 # Privacy
 
-Sonora listens to the world around you, so this page lists exactly what it does with that. It is checked against the code for each release (last review: v0.8.0).
+Sonora listens to the world around you, so this page lists exactly what it does with that. It is checked against the code for each release (last review: v0.9.0).
 
 ## What never happens
 
@@ -29,9 +29,19 @@ Ambient listening sends at most 200 recognition requests a day. It sends nothing
 | Recognition history (songs, times, source, match score) | App-private SQLite database `sonora.db` | Delete single entries, songs or everything from History |
 | Your ACRCloud keys | `sonora_provider_keys`, AES-256-GCM encrypted with an Android Keystore key | Entered in Settings › Recognition; never shown again or sent to the Flutter UI; **Remove keys** deletes them |
 | Spotify tokens | `sonora_secure`, encrypted the same way | Deleted when you disconnect Spotify |
-| Settings (default playlist, daily request count, whether listening was on) | App-private SharedPreferences | Nothing sensitive |
+| Settings (default playlist, daily request count, whether listening was on, light or dark theme) | App-private SharedPreferences | Nothing sensitive |
+| Your agreement to the disclosure (version and time) | App-private SharedPreferences `sonora_consent` | Withdraw it in Settings › Privacy |
 
 Android backup is disabled for both encrypted files, so they are never copied to a cloud backup. A restored copy couldn't be decrypted anyway, because the Keystore key never leaves the phone.
+
+## Disclosure and consent
+
+On first launch Sonora shows an in-app disclosure of how it uses the microphone and what it sends, as Google Play's User Data policy requires. It covers the background microphone use, the fingerprint sent to ACRCloud, cover lookups on Spotify or iTunes, local history, Spotify, and the absence of ads and analytics. It links to this page.
+
+- The microphone can't be used until you tap **Agree and continue**. Android's microphone prompt only appears after that.
+- You can choose **Not now** and look around; Home and Settings offer the disclosure again.
+- The agreement is stored natively, so the app, the Quick Settings tile and the listening service all check it. If the disclosure changes materially, its version goes up and you are asked again.
+- **Settings › Privacy › Withdraw microphone consent** stops listening at once. Revoke the permission itself in Android's app settings.
 
 ## Permissions
 

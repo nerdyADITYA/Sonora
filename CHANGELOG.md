@@ -2,6 +2,21 @@
 
 This project follows [Semantic Versioning](https://semver.org/). Versions before 1.0 are betas.
 
+## [0.9.0] - beta
+
+### Added
+- First-run onboarding with a prominent privacy disclosure. The microphone can't be used, and Android's permission prompt doesn't appear, until you agree. The app, Quick Settings tile and listening service all check this.
+- Settings › Privacy: the privacy policy, and withdrawing consent.
+- The Spotify logo next to Spotify in Settings and on Open in Spotify.
+- In-app ACRCloud setup guide (Settings › Recognition › How to get keys). On a fresh install, Home points to it until keys are saved.
+- Light and dark themes, chosen in Settings › Appearance or with the button on Home.
+- New app icon: an adaptive waveform icon with a themed-icon version, and a matching notification icon.
+
+### Changed
+- Y2K pop redesign: outlined sticker cards, pill buttons, and History as a Pinterest-style board of album covers.
+- Device and bridge details are no longer shown in the app.
+- Release APKs are 64-bit ARM only (about 18 MB), because the ACRCloud engine exists only for arm64-v8a.
+
 ## [0.8.0] - beta
 
 ### Added

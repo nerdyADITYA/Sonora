@@ -92,6 +92,18 @@ android {
     }
 }
 
+// The ACRCloud engine ships for 64-bit ARM only. Release APKs leave out the
+// other ABIs, so 32-bit and x86 phones refuse to install them rather than
+// installing an app that crashes or can't recognise anything. Debug builds
+// keep every ABI, for emulators.
+androidComponents {
+    onVariants(selector().withBuildType("release")) { variant ->
+        variant.packaging.jniLibs.excludes.addAll(
+            listOf("lib/armeabi-v7a/**", "lib/x86/**", "lib/x86_64/**"),
+        )
+    }
+}
+
 dependencies {
     if (hasAcrCloudSdk) implementation(acrCloudSdkJars)
 

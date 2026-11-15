@@ -90,4 +90,40 @@ void main() {
     expect(find.text('Recognition unavailable'), findsOneWidget);
     expect(find.text('Enter ACRCloud keys'), findsNothing);
   });
+
+  testWidgets('a fresh install is guided from Home to saved keys', (
+    tester,
+  ) async {
+    final platform = FakePlatform()
+      ..recognitionProvider = const RecognitionProvider(
+        sdkAvailable: true,
+        source: KeySource.none,
+      );
+    await pumpSonora(tester, platform);
+
+    expect(find.text('Set up recognition first'), findsOneWidget);
+    expect(find.text('Identify song'), findsNothing);
+
+    await tester.tap(find.text('Set up ACRCloud'));
+    await tester.pumpAndSettle();
+    expect(find.text('Make a free account'), findsOneWidget);
+    expect(find.text('Open ACRCloud console'), findsOneWidget);
+
+    final enter = find.text('Enter ACRCloud keys');
+    await tester.ensureVisible(enter);
+    await tester.pumpAndSettle();
+    await tester.tap(enter);
+    await tester.pumpAndSettle();
+    final fields = find.byType(TextField);
+    await tester.enterText(fields.at(0), 'identify-eu-west-1.acrcloud.com');
+    await tester.enterText(fields.at(1), 'key123');
+    await tester.enterText(fields.at(2), 'secret456');
+    await tester.tap(find.text('Save'));
+    await tester.pumpAndSettle();
+
+    await tester.scrollUntilVisible(find.text("You're all set"), -200);
+    await tester.tap(find.text('Start identifying'));
+    await tester.pumpAndSettle();
+    expect(find.text('Identify song'), findsOneWidget);
+  });
 }

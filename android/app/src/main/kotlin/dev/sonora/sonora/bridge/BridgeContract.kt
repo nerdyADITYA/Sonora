@@ -42,6 +42,8 @@ object BridgeContract {
         const val GET_RECOGNITION_PROVIDER = "getRecognitionProvider"
         const val SET_ACRCLOUD_KEYS = "setAcrCloudKeys"
         const val CLEAR_ACRCLOUD_KEYS = "clearAcrCloudKeys"
+        const val GET_PRIVACY_CONSENT = "getPrivacyConsent"
+        const val SET_PRIVACY_CONSENT = "setPrivacyConsent"
 
         // Part of the published contract but implemented in later phases.
         // They answer with NOT_IMPLEMENTED instead of failing silently.

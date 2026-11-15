@@ -58,6 +58,17 @@ final latestRecognitionProvider = FutureProvider<HistoryEntry?>((ref) async {
   return page.entries.firstOrNull;
 });
 
+/// The latest few recognitions, for the dashboard's pin board.
+final recentRecognitionsProvider = FutureProvider<List<HistoryEntry>>((
+  ref,
+) async {
+  _refreshOnHistoryChange(ref);
+  final page = await ref
+      .watch(sonoraPlatformProvider)
+      .getRecognitionHistory(limit: 7);
+  return page.entries;
+});
+
 final songDetailProvider = FutureProvider.autoDispose.family<SongDetail, int>((
   ref,
   songId,

@@ -1,20 +1,22 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
-import 'home_shell.dart';
+import 'app_gate.dart';
 import 'theme/app_theme.dart';
+import 'theme/theme_mode_controller.dart';
 
-class SonoraApp extends StatelessWidget {
+class SonoraApp extends ConsumerWidget {
   const SonoraApp({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return MaterialApp(
       title: 'Sonora',
       debugShowCheckedModeBanner: false,
-      theme: AppTheme.dark(),
+      theme: AppTheme.light(),
       darkTheme: AppTheme.dark(),
-      themeMode: ThemeMode.dark,
-      home: const HomeShell(),
+      themeMode: ref.watch(themeModeProvider),
+      home: const AppGate(),
     );
   }
 }

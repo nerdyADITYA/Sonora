@@ -1,7 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
-import '../../../app/theme/app_colors.dart';
+import '../../../app/theme/sonora_palette.dart';
 import '../../../core/errors/platform_failure.dart';
 import '../../../core/platform/sonora_platform.dart';
 import '../../listening/providers/listening_controller.dart';
@@ -37,7 +37,7 @@ class ListeningSettingsCard extends ConsumerWidget {
                         'Tap, then Battery › Unrestricted.',
               style: unrestricted
                   ? null
-                  : const TextStyle(color: AppColors.warning),
+                  : TextStyle(color: context.palette.warning),
             ),
             onTap: ref
                 .read(listeningControllerProvider.notifier)

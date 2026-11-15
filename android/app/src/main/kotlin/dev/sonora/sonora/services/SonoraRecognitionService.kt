@@ -18,6 +18,7 @@ import dev.sonora.sonora.audio.GatedCapture
 import dev.sonora.sonora.database.HistoryRepository
 import dev.sonora.sonora.database.RecognitionSource
 import dev.sonora.sonora.notifications.RecognitionNotificationManager
+import dev.sonora.sonora.privacy.PrivacyConsent
 import dev.sonora.sonora.recognition.ArtworkResolver
 import dev.sonora.sonora.recognition.Connectivity
 import dev.sonora.sonora.spotify.SpotifyManager
@@ -93,6 +94,10 @@ class SonoraRecognitionService : Service() {
         if (running) {
             // Every startForegroundService() call must be answered with startForeground().
             enterForeground()
+            return
+        }
+        if (!PrivacyConsent.isAccepted(this)) {
+            fail(PrivacyConsent.CONSENT_REQUIRED)
             return
         }
         if (!audio.hasPermission()) {

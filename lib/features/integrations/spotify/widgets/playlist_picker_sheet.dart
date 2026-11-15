@@ -1,7 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
-import '../../../../app/theme/app_colors.dart';
+import '../../../../app/theme/sonora_palette.dart';
 import '../../../../core/errors/platform_failure.dart';
 import '../../../../core/models/spotify.dart';
 import '../../../../core/platform/sonora_platform.dart';
@@ -17,7 +17,7 @@ Future<SpotifyPlaylist?> showPlaylistPicker(BuildContext context) =>
       context: context,
       isScrollControlled: true,
       showDragHandle: true,
-      backgroundColor: AppColors.surface,
+      backgroundColor: context.palette.surface,
       builder: (_) => const _PlaylistPicker(),
     );
 
@@ -65,10 +65,10 @@ class _PlaylistPickerState extends ConsumerState<_PlaylistPicker> {
           ),
           ListTile(
             contentPadding: const EdgeInsets.symmetric(horizontal: 24),
-            leading: const CircleAvatar(
-              backgroundColor: AppColors.accent,
-              foregroundColor: AppColors.onAccent,
-              child: Icon(Icons.add),
+            leading: CircleAvatar(
+              backgroundColor: context.palette.accent,
+              foregroundColor: context.palette.onAccent,
+              child: const Icon(Icons.add),
             ),
             title: const Text('New playlist: $defaultNewPlaylistName'),
             subtitle: const Text('Private, in your Spotify library'),
@@ -129,7 +129,7 @@ class _PlaylistPickerState extends ConsumerState<_PlaylistPicker> {
                 'another Spotify account owns ${page.hiddenCount == 1 ? 'it' : 'them'}, and Spotify only lets '
                 'apps add to your own or collaborative playlists.',
                 style: theme.textTheme.bodySmall?.copyWith(
-                  color: AppColors.textSecondary,
+                  color: context.palette.textSecondary,
                 ),
               ),
             ),

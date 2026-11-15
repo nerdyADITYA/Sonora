@@ -4,7 +4,7 @@
 
 Sonora is an open-source Android app for ambient music recognition. Once you turn listening on, it identifies songs playing around you, keeps a local history, and lets you save them to your streaming service. It's built to feel like a system feature, not an app you have to remember to open.
 
-> **Status: v0.8.0 beta.** Sonora identifies songs on demand or in the background, keeps a searchable history on your phone, and adds songs to your Spotify playlists. Listening can be switched from Quick Settings, and songs saved straight from the notification. Tested on a Galaxy S24 Ultra.
+> **Status: v0.9.0 beta.** Sonora identifies songs on demand or in the background, keeps a searchable history on your phone as a board of album covers, and adds songs to your Spotify playlists. Light and dark themes; a setup guide for your own free ACRCloud keys. Listening can be switched from Quick Settings, and songs saved straight from the notification. Tested on a Galaxy S24 Ultra.
 
 ## What works today
 
@@ -27,7 +27,7 @@ Sonora is distributed as source; there's no prebuilt APK, because the ACRCloud S
 
 1. Build it as described in [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md), including adding the ACRCloud SDK files locally.
 2. Create a free ACRCloud project (Audio & Video Recognition, ACRCloud Music bucket).
-3. In the app, open Settings › Recognition › Enter ACRCloud keys.
+3. In the app, open Settings › Recognition › How to get keys. The guide walks through creating a free ACRCloud project and entering its keys.
 4. Optionally, connect Spotify in Settings to save songs to a playlist.
 
 ## Architecture

@@ -1,15 +1,17 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
-import '../../../app/theme/app_colors.dart';
+import '../../../app/theme/sonora_palette.dart';
 import '../../../core/errors/platform_failure.dart';
 import '../../../core/models/history.dart';
 import '../../../core/models/recognized_song.dart';
 import '../../../core/platform/sonora_platform.dart';
 import '../../../shared/utils/formatting.dart';
 import '../../../shared/widgets/album_artwork.dart';
+import '../../../shared/widgets/pop.dart';
 import '../../integrations/spotify/add_to_spotify.dart';
 import '../../integrations/spotify/providers/spotify_controller.dart';
+import '../../integrations/spotify/widgets/spotify_logo.dart';
 import '../providers/history_providers.dart';
 
 /// Which Spotify playlists this song was saved to, or is waiting to retry.
@@ -27,7 +29,7 @@ class _PlaylistStatus extends ConsumerWidget {
         ref.watch(spotifySyncStatusProvider(songId)).value ?? const [];
     if (items.isEmpty) return const SizedBox.shrink();
     final style = Theme.of(context).textTheme.bodySmall
-        ?.copyWith(color: AppColors.textSecondary);
+        ?.copyWith(color: context.palette.textSecondary);
     return Padding(
       padding: const EdgeInsets.only(top: 12),
       child: Column(
@@ -139,7 +141,7 @@ class SongDetailScreen extends ConsumerWidget {
     final theme = Theme.of(context);
     final song = detail.song;
     final secondary = theme.textTheme.bodyMedium?.copyWith(
-      color: AppColors.textSecondary,
+      color: context.palette.textSecondary,
     );
 
     return ListView(
@@ -148,9 +150,9 @@ class SongDetailScreen extends ConsumerWidget {
         Center(
           child: AlbumArtwork(
             url: song.artworkUrl,
-            highlighted: true,
-            size: 240,
-            radius: 24,
+            seed: songId,
+            size: 260,
+            radius: 28,
           ),
         ),
         const SizedBox(height: 24),
@@ -162,7 +164,7 @@ class SongDetailScreen extends ConsumerWidget {
         const SizedBox(height: 4),
         Text(
           song.artist,
-          style: theme.textTheme.titleMedium?.copyWith(color: AppColors.accent),
+          style: theme.textTheme.titleMedium,
           textAlign: TextAlign.center,
         ),
         if (song.album != null) ...[
@@ -183,7 +185,7 @@ class SongDetailScreen extends ConsumerWidget {
             if (song.spotifyTrackId != null)
               OutlinedButton.icon(
                 onPressed: () => _openInSpotify(context, ref, song),
-                icon: const Icon(Icons.open_in_new),
+                icon: const SpotifyLogo(size: 22),
                 label: const Text('Open in Spotify'),
               ),
           ],
@@ -210,14 +212,7 @@ class SongDetailScreen extends ConsumerWidget {
           ),
         ),
         const SizedBox(height: 24),
-        Text(
-          'HEARD',
-          style: theme.textTheme.labelMedium?.copyWith(
-            color: AppColors.textSecondary,
-            letterSpacing: 1.2,
-          ),
-        ),
-        const SizedBox(height: 8),
+        const SectionLabel('heard'),
         for (final r in detail.recognitions)
           ListTile(
             contentPadding: EdgeInsets.zero,
@@ -225,7 +220,7 @@ class SongDetailScreen extends ConsumerWidget {
               r.source == RecognitionSource.ambient
                   ? Icons.graphic_eq
                   : Icons.touch_app_outlined,
-              color: AppColors.textSecondary,
+              color: context.palette.textSecondary,
             ),
             title: Text(Formatting.dayAndTime(context, r.recognizedAt)),
             subtitle: Text(
@@ -261,7 +256,7 @@ class _InfoRow extends StatelessWidget {
             child: Text(
               label,
               style: theme.textTheme.bodyMedium?.copyWith(
-                color: AppColors.textSecondary,
+                color: context.palette.textSecondary,
               ),
             ),
           ),

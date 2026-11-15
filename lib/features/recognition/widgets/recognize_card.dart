@@ -1,8 +1,13 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
-import '../../../app/theme/app_colors.dart';
+import '../../../app/theme/sonora_palette.dart';
+import '../../../shared/widgets/pop.dart';
 import '../../listening/providers/listening_controller.dart';
+import '../../onboarding/providers/privacy_consent_controller.dart';
+import '../../onboarding/widgets/privacy_disclosure.dart';
+import '../../settings/providers/recognition_provider_controller.dart';
+import '../../settings/screens/acrcloud_setup_screen.dart';
 import '../providers/recognition_controller.dart';
 import '../recognition_error_copy.dart';
 
@@ -18,7 +23,28 @@ class RecognizeCard extends ConsumerWidget {
     final listening = ref.watch(
       listeningControllerProvider.select((s) => s.listening),
     );
-    var (headline, detail, color) = _describe(state);
+    final p = context.palette;
+    final provider = ref.watch(recognitionProviderProvider).value;
+    // A fresh install has no keys: send people to the setup guide first.
+    final needsKeys =
+        provider != null && provider.sdkAvailable && !provider.configured;
+    final needsConsent = ref.watch(privacyConsentProvider).value == false;
+    var (headline, detail, color) = _describe(state, p);
+    if (needsConsent && !state.isBusy) {
+      (headline, detail, color) = (
+        'Agree to start identifying',
+        'Sonora needs your OK before it uses the microphone. See exactly '
+            'what it does first.',
+        null,
+      );
+    } else if (needsKeys && !state.isBusy) {
+      (headline, detail, color) = (
+        'Set up recognition first',
+        'Sonora needs your own free ACRCloud keys to identify songs. '
+            'It takes about five minutes.',
+        null,
+      );
+    }
     if (listening && !state.isBusy) {
       (headline, detail, color) = (
         'Listening automatically',
@@ -27,39 +53,40 @@ class RecognizeCard extends ConsumerWidget {
       );
     }
 
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
+    return PopCard(
+      color: p.surface,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Align(
+            alignment: Alignment.centerLeft,
+            child: PopChip('identify', color: p.pink, icon: Icons.bolt),
+          ),
+          const SizedBox(height: 14),
+          Text(
+            headline,
+            style: theme.textTheme.headlineSmall?.copyWith(color: color),
+          ),
+          if (detail != null) ...[
+            const SizedBox(height: 6),
             Text(
-              'IDENTIFY',
-              style: theme.textTheme.labelMedium?.copyWith(
-                color: AppColors.textSecondary,
-                letterSpacing: 1.2,
+              detail,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: p.textSecondary,
               ),
             ),
-            const SizedBox(height: 12),
-            Text(
-              headline,
-              style: theme.textTheme.titleMedium?.copyWith(color: color),
+          ],
+          if (state.isBusy) ...[
+            const SizedBox(height: 18),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: const LinearProgressIndicator(minHeight: 8),
             ),
-            if (detail != null) ...[
-              const SizedBox(height: 4),
-              Text(
-                detail,
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: AppColors.textSecondary,
-                ),
-              ),
-            ],
-            if (state.isBusy) ...[
-              const SizedBox(height: 16),
-              const LinearProgressIndicator(minHeight: 3),
-            ],
-            const SizedBox(height: 16),
-            state.isBusy
+          ],
+          const SizedBox(height: 18),
+          SizedBox(
+            height: 58,
+            child: state.isBusy
                 ? OutlinedButton.icon(
                     onPressed: state.phase == RecognitionPhase.capturing
                         ? controller.cancel
@@ -67,18 +94,46 @@ class RecognizeCard extends ConsumerWidget {
                     icon: const Icon(Icons.close),
                     label: const Text('Cancel'),
                   )
+                : needsConsent
+                ? FilledButton.icon(
+                    onPressed: () => PrivacyDisclosureScreen.open(context),
+                    icon: const Icon(Icons.privacy_tip_outlined, size: 24),
+                    label: const Text('Review and agree'),
+                    style: FilledButton.styleFrom(
+                      textStyle: theme.textTheme.titleMedium,
+                    ),
+                  )
+                : needsKeys
+                ? FilledButton.icon(
+                    onPressed: () => Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) => const AcrCloudSetupScreen(),
+                      ),
+                    ),
+                    icon: const Icon(Icons.key_outlined, size: 24),
+                    label: const Text('Set up ACRCloud'),
+                    style: FilledButton.styleFrom(
+                      textStyle: theme.textTheme.titleMedium,
+                    ),
+                  )
                 : FilledButton.icon(
                     onPressed: listening ? null : controller.recognize,
-                    icon: const Icon(Icons.graphic_eq),
+                    icon: const Icon(Icons.graphic_eq, size: 24),
                     label: const Text('Identify song'),
+                    style: FilledButton.styleFrom(
+                      textStyle: theme.textTheme.titleMedium,
+                    ),
                   ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
 
-  static (String, String?, Color?) _describe(RecognitionState state) {
+  static (String, String?, Color?) _describe(
+    RecognitionState state,
+    SonoraPalette p,
+  ) {
     final seconds = state.elapsed == null
         ? null
         : (state.elapsed!.inMilliseconds / 1000).toStringAsFixed(1);
@@ -97,28 +152,24 @@ class RecognizeCard extends ConsumerWidget {
       RecognitionPhase.capturing => (
         'Listening…',
         'Hold your phone towards the music.',
-        AppColors.accent,
+        null,
       ),
-      RecognitionPhase.matching => ('Matching…', null, AppColors.accent),
+      RecognitionPhase.matching => ('Matching…', null, null),
       RecognitionPhase.matched when !state.confident => (
         'Possible match',
         'Took $seconds s. Sonora isn’t sure about this one, so check it below and delete it from History if it’s wrong.',
-        AppColors.warning,
+        p.warning,
       ),
-      RecognitionPhase.matched => (
-        'Found it',
-        'Took $seconds s.',
-        AppColors.success,
-      ),
+      RecognitionPhase.matched => ('Found it', 'Took $seconds s.', p.success),
       RecognitionPhase.noMatch => (
         'No match',
         'Try again closer to the speaker, or when the music is louder.',
-        AppColors.warning,
+        p.warning,
       ),
       RecognitionPhase.failed => (
         _errorTitle(state.errorCode),
         _errorDetail(state.errorCode),
-        AppColors.error,
+        p.error,
       ),
     };
   }

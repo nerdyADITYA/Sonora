@@ -1,16 +1,15 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
-import '../../../../app/theme/app_colors.dart';
+import '../../../../app/theme/sonora_palette.dart';
 import '../../../recognition/recognition_error_copy.dart';
 import '../providers/spotify_controller.dart';
 import 'playlist_picker_sheet.dart';
+import 'spotify_logo.dart';
 
 /// Spotify connection and default playlist, for the Settings tab.
 class SpotifyCard extends ConsumerWidget {
   const SpotifyCard({super.key});
-
-  static const _spotifyGreen = Color(0xFF1ED760);
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -19,13 +18,13 @@ class SpotifyCard extends ConsumerWidget {
     final controller = ref.read(spotifyControllerProvider.notifier);
     final status = state.status;
     final secondary = theme.textTheme.bodyMedium?.copyWith(
-      color: AppColors.textSecondary,
+      color: context.palette.textSecondary,
     );
 
     final children = <Widget>[
       Row(
         children: [
-          const Icon(Icons.queue_music, color: _spotifyGreen),
+          const SpotifyLogo(),
           const SizedBox(width: 12),
           Text('Spotify', style: theme.textTheme.titleMedium),
         ],
@@ -53,7 +52,9 @@ class SpotifyCard extends ConsumerWidget {
           const SizedBox(height: 8),
           Text(
             recognitionErrorDetail(state.error) ?? state.error!,
-            style: theme.textTheme.bodyMedium?.copyWith(color: AppColors.error),
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: context.palette.error,
+            ),
           ),
         ],
         const SizedBox(height: 16),

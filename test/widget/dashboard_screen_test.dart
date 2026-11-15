@@ -21,32 +21,36 @@ Future<void> _tapIdentify(WidgetTester tester) async {
   await tester.pumpAndSettle();
 }
 
+Future<void> _openSettings(WidgetTester tester) async {
+  await tester.tap(find.text('Settings').last);
+  await tester.pumpAndSettle();
+}
+
 void main() {
-  testWidgets('dashboard shows bridge data and an honest listening state', (
-    tester,
-  ) async {
+  testWidgets('dashboard shows an honest listening state', (tester) async {
     await pumpSonora(tester, FakePlatform());
 
     expect(find.text('Sonora'), findsWidgets);
     expect(find.text('Not listening'), findsOneWidget);
     expect(find.text('No songs yet'), findsOneWidget);
-    expect(find.text('samsung SM-S928B'), findsOneWidget);
-    expect(find.text('17 (API 37)'), findsOneWidget);
-    expect(find.text('Event channel: Connected'), findsOneWidget);
 
     final toggle = tester.widget<Switch>(find.byType(Switch));
     expect(toggle.value, isFalse);
     expect(toggle.onChanged, isNotNull);
+
+    // The version from the native bridge is shown at the end of Settings.
+    await _openSettings(tester);
+    expect(find.text('Sonora 0.1.0'), findsOneWidget);
   });
 
-  testWidgets(
-    'dashboard shows the failure code when the bridge is unavailable',
-    (tester) async {
-      await pumpSonora(tester, FakePlatform(failInfo: true));
+  testWidgets('Settings still works when the bridge is unavailable', (
+    tester,
+  ) async {
+    await pumpSonora(tester, FakePlatform(failInfo: true));
+    await _openSettings(tester);
 
-      expect(find.text(PlatformFailure.bridgeUnavailable), findsOneWidget);
-    },
-  );
+    expect(find.text('Sonora'), findsOneWidget);
+  });
 
   testWidgets('identifying a song shows it as the last discovery', (
     tester,

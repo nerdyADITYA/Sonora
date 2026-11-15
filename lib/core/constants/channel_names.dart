@@ -37,6 +37,8 @@ abstract final class BridgeMethods {
   static const getRecognitionProvider = 'getRecognitionProvider';
   static const setAcrCloudKeys = 'setAcrCloudKeys';
   static const clearAcrCloudKeys = 'clearAcrCloudKeys';
+  static const getPrivacyConsent = 'getPrivacyConsent';
+  static const setPrivacyConsent = 'setPrivacyConsent';
 }
 
 abstract final class BridgeEventTypes {

@@ -65,6 +65,8 @@ Error codes: `NOT_IMPLEMENTED`, `INVALID_ARGUMENT`, `INTERNAL_ERROR` (native), p
 | `getRecognitionProvider` | v0.8.0 | `sdkAvailable, source ("settings" \| "build" \| null), host?`. Never returns the key or secret |
 | `setAcrCloudKeys` | v0.8.0 | args `host, accessKey, accessSecret`. Validated (an `*.acrcloud.com` host; keys without spaces), then stored encrypted; `INVALID_ARGUMENT` with a readable message otherwise. Returns the provider status |
 | `clearAcrCloudKeys` | v0.8.0 | deletes keys entered in Settings. Returns the provider status |
+| `getPrivacyConsent` | v0.9.0 | `accepted, version`. Whether the user agreed to the current disclosure |
+| `setPrivacyConsent` | v0.9.0 | args `accepted`. `false` also cancels recognition and stops listening. Until consent, `requestPermissions`, `recognizeOnce` and `startListening` fail with `CONSENT_REQUIRED`, and the tile opens the app |
 | `getRecognitionSettings`, `updateRecognitionSettings` | planned | currently return `NOT_IMPLEMENTED` |
 
 `HistoryEntry`: `eventId, songId, source ("manual" | "ambient"), recognizedAt, song: RecognizedSong`.

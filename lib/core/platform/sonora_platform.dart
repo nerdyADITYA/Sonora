@@ -192,6 +192,17 @@ class SonoraPlatform {
   }
 
   /// Which ACRCloud keys are in use (never the key or secret).
+  /// Whether the user agreed to the microphone and data disclosure.
+  Future<bool> getPrivacyConsent() async =>
+      (await _invoke(BridgeMethods.getPrivacyConsent))['accepted'] == true;
+
+  /// Records agreement, or withdraws it (which also stops listening).
+  Future<bool> setPrivacyConsent(bool accepted) async =>
+      (await _invoke(BridgeMethods.setPrivacyConsent, {
+        'accepted': accepted,
+      }))['accepted'] ==
+      true;
+
   Future<RecognitionProvider> getRecognitionProvider() async =>
       RecognitionProvider.fromMap(
         await _invoke(BridgeMethods.getRecognitionProvider),

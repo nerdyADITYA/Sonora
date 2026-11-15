@@ -3,15 +3,16 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
-import '../../../app/theme/app_colors.dart';
+import '../../../app/theme/sonora_palette.dart';
 import '../../../core/errors/platform_failure.dart';
 import '../../../core/models/history.dart';
 import '../../../core/platform/sonora_platform.dart';
 import '../../../shared/utils/formatting.dart';
 import '../providers/history_providers.dart';
-import '../widgets/history_tile.dart';
+import '../../../shared/widgets/pin_board.dart';
+import '../../../shared/widgets/pop.dart';
 
-/// Every recognition, searchable and sortable, grouped by day.
+/// Every recognition as a pin board, searchable and sortable, grouped by day.
 class HistoryScreen extends ConsumerStatefulWidget {
   const HistoryScreen({super.key});
 
@@ -100,12 +101,12 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
     return Scaffold(
       body: CustomScrollView(
         slivers: [
-          SliverAppBar.large(
-            title: const Text('History'),
+          PopHeader(
+            title: 'your sounds',
             actions: [
               PopupMenuButton<HistorySort>(
                 tooltip: 'Sort',
-                icon: const Icon(Icons.sort),
+                icon: const Icon(Icons.swap_vert),
                 initialValue: query.sort,
                 onSelected: ref.read(historyQueryProvider.notifier).sortBy,
                 itemBuilder: (_) => [
@@ -127,13 +128,10 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
             sliver: SliverToBoxAdapter(
               child: SearchBar(
+                constraints: const BoxConstraints(minHeight: 52),
                 controller: _search,
                 hintText: 'Search songs, artists, albums',
                 leading: const Icon(Icons.search),
-                elevation: const WidgetStatePropertyAll(0),
-                backgroundColor: const WidgetStatePropertyAll(
-                  AppColors.surface,
-                ),
                 onChanged: _onSearchChanged,
                 trailing: [
                   if (_search.text.isNotEmpty)
@@ -194,38 +192,70 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
       ];
     }
 
-    final children = <Widget>[];
-    String? currentDay;
-    for (final entry in page.entries) {
-      if (_dismissed.contains(entry.eventId)) continue;
-      if (query.sort.isChronological) {
-        final day = Formatting.day(context, entry.recognizedAt);
-        if (day != currentDay) {
-          currentDay = day;
-          children.add(_DayHeader(day));
-        }
-      }
-      children.add(
-        Dismissible(
-          key: ValueKey(entry.eventId),
-          direction: DismissDirection.endToStart,
-          background: Container(
-            alignment: Alignment.centerRight,
-            padding: const EdgeInsets.only(right: 24),
-            color: AppColors.error.withValues(alpha: 0.2),
-            child: const Icon(Icons.delete_outline, color: AppColors.error),
-          ),
-          onDismissed: (_) {
-            setState(() => _dismissed.add(entry.eventId));
-            _delete(entry);
-          },
-          child: HistoryTile(entry: entry),
+    final p = context.palette;
+    final entries = [
+      for (final e in page.entries)
+        if (!_dismissed.contains(e.eventId)) e,
+    ];
+
+    Widget pin(HistoryEntry entry) => Dismissible(
+      key: ValueKey(entry.eventId),
+      direction: DismissDirection.endToStart,
+      background: Container(
+        alignment: Alignment.centerRight,
+        padding: const EdgeInsets.only(right: 20),
+        decoration: BoxDecoration(
+          color: p.error.withValues(alpha: 0.25),
+          borderRadius: BorderRadius.circular(22),
         ),
-      );
+        child: Icon(Icons.delete_outline, color: p.error),
+      ),
+      onDismissed: (_) {
+        setState(() => _dismissed.add(entry.eventId));
+        _delete(entry);
+      },
+      child: PinCard(entry: entry, showDay: !query.sort.isChronological),
+    );
+
+    Widget board(List<HistoryEntry> group) => Masonry(
+      heights: [for (final e in group) pinHeight(e)],
+      children: [for (final e in group) pin(e)],
+    );
+
+    final children = <Widget>[];
+    if (query.sort.isChronological) {
+      // Consecutive entries from the same day share a board.
+      var group = <HistoryEntry>[];
+      String? day;
+      void flush() {
+        if (group.isEmpty) return;
+        children
+          ..add(_DayHeader(day!))
+          ..add(board(group));
+        group = [];
+      }
+
+      for (final entry in entries) {
+        final d = Formatting.day(context, entry.recognizedAt);
+        if (d != day) {
+          flush();
+          day = d;
+        }
+        group.add(entry);
+      }
+      flush();
+    } else {
+      children
+        ..add(const SizedBox(height: 12))
+        ..add(board(entries));
     }
+
     return [
-      SliverList.list(children: children),
-      const SliverToBoxAdapter(child: SizedBox(height: 24)),
+      SliverPadding(
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        sliver: SliverList.list(children: children),
+      ),
+      const SliverToBoxAdapter(child: SizedBox(height: 32)),
     ];
   }
 }
@@ -237,11 +267,10 @@ class _DayHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.fromLTRB(24, 20, 24, 8),
-    child: Text(
-      label.toUpperCase(),
-      style: Theme.of(context).textTheme.labelMedium
-          ?.copyWith(color: AppColors.textSecondary, letterSpacing: 1.2),
+    padding: const EdgeInsets.fromLTRB(0, 20, 0, 12),
+    child: Align(
+      alignment: Alignment.centerLeft,
+      child: PopChip(label.toLowerCase(), color: context.palette.violet),
     ),
   );
 }
@@ -263,7 +292,7 @@ class _Message extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, size: 48, color: AppColors.textSecondary),
+            Icon(icon, size: 48, color: context.palette.textSecondary),
             const SizedBox(height: 16),
             Text(title, style: theme.textTheme.titleMedium),
             const SizedBox(height: 8),
@@ -271,7 +300,7 @@ class _Message extends StatelessWidget {
               body,
               textAlign: TextAlign.center,
               style: theme.textTheme.bodyMedium?.copyWith(
-                color: AppColors.textSecondary,
+                color: context.palette.textSecondary,
               ),
             ),
           ],

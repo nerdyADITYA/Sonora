@@ -2,6 +2,8 @@
 /// manual Identify card and the ambient listening card.
 String? recognitionErrorDetail(String? code) => switch (code) {
   null || 'CANCELLED' => null,
+  'CONSENT_REQUIRED' =>
+    'Agree to how Sonora uses the microphone first. It takes one tap.',
   'PERMISSION_DENIED' => 'Sonora needs the microphone to hear the music. Nothing is recorded or stored.',
   'PERMISSION_PERMANENTLY_DENIED' || 'PERMISSION_REQUIRED' =>
     'Enable it in Settings › Apps › Sonora › Permissions › Microphone.',

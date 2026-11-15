@@ -66,8 +66,8 @@ void main() {
     await pumpSonora(tester, _withHistory());
     await _openHistory(tester);
 
-    expect(find.text('TODAY'), findsOneWidget);
-    expect(find.text('YESTERDAY'), findsOneWidget);
+    expect(find.text('today'), findsOneWidget);
+    expect(find.text('yesterday'), findsOneWidget);
     expect(find.text('Chandelier'), findsOneWidget);
     expect(find.text('Snowman'), findsNWidgets(2));
   });

@@ -59,6 +59,16 @@ class FakePlatform extends SonoraPlatform {
   );
   Map<String, String>? savedKeys;
 
+  /// Existing users have agreed; onboarding tests start with false.
+  bool privacyAccepted = true;
+
+  @override
+  Future<bool> getPrivacyConsent() async => privacyAccepted;
+
+  @override
+  Future<bool> setPrivacyConsent(bool accepted) async =>
+      privacyAccepted = accepted;
+
   @override
   Future<RecognitionProvider> getRecognitionProvider() async =>
       recognitionProvider;

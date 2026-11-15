@@ -1,10 +1,15 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
-import '../../../app/theme/app_colors.dart';
+import '../../../app/theme/sonora_palette.dart';
 import '../../../core/errors/platform_failure.dart';
 import '../../../core/models/recognition_provider.dart';
 import '../providers/recognition_provider_controller.dart';
+import '../screens/acrcloud_setup_screen.dart';
+
+/// Opens the dialog for entering ACRCloud keys.
+Future<void> showAcrCloudKeysDialog(BuildContext context) =>
+    showDialog<void>(context: context, builder: (_) => const _KeysDialog());
 
 /// The ACRCloud project Sonora identifies songs with. Each user brings their
 /// own keys; they are stored encrypted on the phone and never shown again.
@@ -53,7 +58,7 @@ class RecognitionSettingsCard extends ConsumerWidget {
             subtitle: Text(
               subtitle,
               style: provider?.configured == false
-                  ? const TextStyle(color: AppColors.warning)
+                  ? TextStyle(color: context.palette.warning)
                   : null,
             ),
           ),
@@ -64,9 +69,17 @@ class RecognitionSettingsCard extends ConsumerWidget {
                   ? 'Change ACRCloud keys'
                   : 'Enter ACRCloud keys',
             ),
-            onTap: () => showDialog<void>(
-              context: context,
-              builder: (_) => const _KeysDialog(),
+            onTap: () => showAcrCloudKeysDialog(context),
+          ),
+          ListTile(
+            leading: const Icon(Icons.help_outline),
+            title: const Text('How to get keys'),
+            subtitle: const Text('A free ACRCloud project, step by step'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => const AcrCloudSetupScreen(),
+              ),
             ),
           ),
           if (provider?.source == KeySource.settings)
@@ -148,10 +161,9 @@ class _KeysDialogState extends ConsumerState<_KeysDialog> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              'Create a free Audio & Video Recognition project at '
-              'console.acrcloud.com with the music bucket, then copy its '
-              'host, access key and access secret. They are stored '
-              'encrypted on this phone and are not shown again.',
+              "Copy these from your project's page in the ACRCloud "
+              'console. They are stored encrypted on this phone and are '
+              'not shown again.',
             ),
             const SizedBox(height: 16),
             TextField(
@@ -163,12 +175,14 @@ class _KeysDialogState extends ConsumerState<_KeysDialog> {
               autocorrect: false,
               keyboardType: TextInputType.url,
             ),
+            const SizedBox(height: 12),
             TextField(
               controller: _key,
               decoration: const InputDecoration(labelText: 'Access key'),
               autocorrect: false,
               enableSuggestions: false,
             ),
+            const SizedBox(height: 12),
             TextField(
               controller: _secret,
               decoration: const InputDecoration(labelText: 'Access secret'),
@@ -178,7 +192,7 @@ class _KeysDialogState extends ConsumerState<_KeysDialog> {
             ),
             if (_error != null) ...[
               const SizedBox(height: 12),
-              Text(_error!, style: const TextStyle(color: AppColors.warning)),
+              Text(_error!, style: TextStyle(color: context.palette.warning)),
             ],
           ],
         ),

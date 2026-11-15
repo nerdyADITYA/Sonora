@@ -16,6 +16,7 @@ import android.util.Log
 import dev.sonora.sonora.audio.AudioCaptureManager
 import dev.sonora.sonora.database.HistoryRepository
 import dev.sonora.sonora.database.HistorySort
+import dev.sonora.sonora.privacy.PrivacyConsent
 import dev.sonora.sonora.recognition.RecognitionEngineFactory
 import dev.sonora.sonora.recognition.AcrCloudCredentials
 import dev.sonora.sonora.recognition.RecognitionErrorCodes
@@ -84,6 +85,23 @@ class SonoraMethodChannel(
                 BridgeContract.Methods.OPEN_BATTERY_SETTINGS -> result.success(openBatterySettings())
 
                 BridgeContract.Methods.REQUEST_ADD_TILE -> requestAddTile(result)
+
+                BridgeContract.Methods.GET_PRIVACY_CONSENT ->
+                    result.success(BridgeResponse.success(PrivacyConsent.toMap(context)))
+
+                BridgeContract.Methods.SET_PRIVACY_CONSENT -> {
+                    val accepted = call.argument<Boolean>("accepted")
+                        ?: return result.success(invalid("accepted"))
+                    if (accepted) {
+                        PrivacyConsent.accept(context)
+                    } else {
+                        // Withdrawing consent stops any listening straight away.
+                        recognition.cancel()
+                        SonoraRecognitionService.stop(context)
+                        PrivacyConsent.withdraw(context)
+                    }
+                    result.success(BridgeResponse.success(PrivacyConsent.toMap(context)))
+                }
 
                 BridgeContract.Methods.GET_RECOGNITION_PROVIDER ->
                     result.success(BridgeResponse.success(recognitionProvider()))
@@ -220,7 +238,8 @@ class SonoraMethodChannel(
 
                 BridgeContract.Methods.REQUEST_PERMISSIONS -> requestPermissions(result)
 
-                BridgeContract.Methods.RECOGNIZE_ONCE -> recognizeOnce(result)
+                BridgeContract.Methods.RECOGNIZE_ONCE ->
+                    if (PrivacyConsent.isAccepted(context)) recognizeOnce(result) else result.success(consentRequired())
 
                 BridgeContract.Methods.CANCEL_RECOGNITION -> {
                     recognition.cancel()
@@ -306,6 +325,8 @@ class SonoraMethodChannel(
     private fun invalid(key: String) = BridgeResponse.failure(BridgeErrorCode.INVALID_ARGUMENT, "Missing or invalid '$key'.")
 
     private fun requestPermissions(result: MethodChannel.Result) {
+        // The disclosure must come before Android's permission prompt.
+        if (!PrivacyConsent.isAccepted(context)) return result.success(consentRequired())
         permissions.requestPermissions { statuses -> result.success(BridgeResponse.success(statuses)) }
     }
 
@@ -359,7 +380,13 @@ class SonoraMethodChannel(
         }
     }
 
+    private fun consentRequired() = BridgeResponse.failure(
+        PrivacyConsent.CONSENT_REQUIRED,
+        "Agree to how Sonora uses the microphone first.",
+    )
+
     private fun startListening(): Map<String, Any?> = when {
+        !PrivacyConsent.isAccepted(context) -> consentRequired()
         !recognition.hasMicrophonePermission ->
             BridgeResponse.failure(AudioCaptureManager.PERMISSION_REQUIRED, "Microphone permission not granted.")
         recognition.isBusy ->
