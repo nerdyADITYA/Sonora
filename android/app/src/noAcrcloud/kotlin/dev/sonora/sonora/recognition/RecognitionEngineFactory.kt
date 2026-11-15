@@ -7,6 +7,9 @@ import android.content.Context
  * builds and runs; recognition reports PROVIDER_UNAVAILABLE.
  */
 object RecognitionEngineFactory {
+    /** Whether this build contains a recognition SDK at all. */
+    const val SDK_AVAILABLE = false
+
     fun create(context: Context): RecognitionEngine = object : RecognitionEngine {
         override val providerName = "none"
 

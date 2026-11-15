@@ -16,6 +16,8 @@ import android.util.Log
 import dev.sonora.sonora.audio.AudioCaptureManager
 import dev.sonora.sonora.database.HistoryRepository
 import dev.sonora.sonora.database.HistorySort
+import dev.sonora.sonora.recognition.RecognitionEngineFactory
+import dev.sonora.sonora.recognition.AcrCloudCredentials
 import dev.sonora.sonora.recognition.RecognitionErrorCodes
 import dev.sonora.sonora.recognition.RecognitionManager
 import dev.sonora.sonora.recognition.RecognitionOutcome
@@ -82,6 +84,28 @@ class SonoraMethodChannel(
                 BridgeContract.Methods.OPEN_BATTERY_SETTINGS -> result.success(openBatterySettings())
 
                 BridgeContract.Methods.REQUEST_ADD_TILE -> requestAddTile(result)
+
+                BridgeContract.Methods.GET_RECOGNITION_PROVIDER ->
+                    result.success(BridgeResponse.success(recognitionProvider()))
+
+                BridgeContract.Methods.SET_ACRCLOUD_KEYS -> {
+                    val response = try {
+                        AcrCloudCredentials.get(context).save(
+                            call.argument<String>("host"),
+                            call.argument<String>("accessKey"),
+                            call.argument<String>("accessSecret"),
+                        )
+                        BridgeResponse.success(recognitionProvider())
+                    } catch (e: IllegalArgumentException) {
+                        BridgeResponse.failure(BridgeErrorCode.INVALID_ARGUMENT, e.message ?: "Invalid keys.")
+                    }
+                    result.success(response)
+                }
+
+                BridgeContract.Methods.CLEAR_ACRCLOUD_KEYS -> {
+                    AcrCloudCredentials.get(context).clear()
+                    result.success(BridgeResponse.success(recognitionProvider()))
+                }
 
                 BridgeContract.Methods.TAKE_LAUNCH_SONG_ID ->
                     result.success(BridgeResponse.success(mapOf("songId" to LaunchRequests.take())))
@@ -303,6 +327,16 @@ class SonoraMethodChannel(
     }
 
     /** Android 13+ asks the user to add the tile; older versions need manual editing of Quick Settings. */
+    /** Which ACRCloud keys are in use. Never includes the key or secret. */
+    private fun recognitionProvider(): Map<String, Any?> {
+        val credentials = AcrCloudCredentials.get(context)
+        return mapOf(
+            "sdkAvailable" to RecognitionEngineFactory.SDK_AVAILABLE,
+            "source" to credentials.source()?.wire,
+            "host" to credentials.current()?.host,
+        )
+    }
+
     private fun requestAddTile(result: MethodChannel.Result) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
             result.success(BridgeResponse.success(mapOf("result" to "unsupported")))

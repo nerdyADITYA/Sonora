@@ -10,6 +10,7 @@ import android.os.HandlerThread
 import android.os.IBinder
 import android.os.PowerManager
 import android.util.Log
+import dev.sonora.sonora.BuildConfig
 import dev.sonora.sonora.audio.AudioCaptureException
 import dev.sonora.sonora.audio.AudioCaptureManager
 import dev.sonora.sonora.audio.AudioConfiguration
@@ -190,11 +191,11 @@ class SonoraRecognitionService : Service() {
         when (capture) {
             GatedCapture.Silent -> schedule(ListeningPolicy.SILENT_DELAY_MS, ListeningPhase.MICROPHONE_BLOCKED)
             is GatedCapture.TooQuiet -> {
-                Log.i(TAG, "Too quiet: %.1f dBFS".format(capture.levelDbfs))
+                if (BuildConfig.DEBUG) Log.i(TAG, "Too quiet: %.1f dBFS".format(capture.levelDbfs))
                 schedule(idle(ListeningPolicy.QUIET_DELAY_MS))
             }
             is GatedCapture.Captured -> {
-                Log.i(TAG, "Captured at %.1f dBFS".format(capture.levelDbfs))
+                if (BuildConfig.DEBUG) Log.i(TAG, "Captured at %.1f dBFS".format(capture.levelDbfs))
                 recognise(capture.pcm)
             }
         }

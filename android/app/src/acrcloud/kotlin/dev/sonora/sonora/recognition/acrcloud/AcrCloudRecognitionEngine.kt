@@ -6,7 +6,7 @@ import com.acrcloud.rec.ACRCloudClient
 import com.acrcloud.rec.ACRCloudConfig
 import com.acrcloud.rec.ACRCloudResult
 import com.acrcloud.rec.IACRCloudListener
-import dev.sonora.sonora.BuildConfig
+import dev.sonora.sonora.recognition.AcrCloudCredentials
 import dev.sonora.sonora.recognition.RecognitionEngine
 import dev.sonora.sonora.recognition.RecognitionErrorCodes
 import dev.sonora.sonora.recognition.RecognitionOutcome
@@ -20,23 +20,20 @@ class AcrCloudRecognitionEngine(private val context: Context) : RecognitionEngin
     override val providerName: String = AcrCloudResponseParser.PROVIDER
 
     private var client: ACRCloudClient? = null
+    private var clientKeys: AcrCloudCredentials.Keys? = null
 
     override fun recognize(pcm: ByteArray, sampleRate: Int, channels: Int): RecognitionOutcome {
-        if (BuildConfig.ACRCLOUD_HOST.isBlank() ||
-            BuildConfig.ACRCLOUD_ACCESS_KEY.isBlank() ||
-            BuildConfig.ACRCLOUD_ACCESS_SECRET.isBlank()
-        ) {
-            return RecognitionOutcome.Failure(
+        val keys = AcrCloudCredentials.get(context).current()
+            ?: return RecognitionOutcome.Failure(
                 RecognitionErrorCodes.NOT_CONFIGURED,
-                "ACRCloud credentials are missing from android/local.properties.",
+                "Add your ACRCloud project keys in Settings.",
             )
-        }
 
         return try {
             val fingerprint = ACRCloudClient.createClientFingerprint(pcm, pcm.size, sampleRate, channels)
             if (fingerprint == null || fingerprint.isEmpty()) return RecognitionOutcome.NoMatch
 
-            val json = requireClient().recognizeFingerprint(
+            val json = requireClient(keys).recognizeFingerprint(
                 fingerprint,
                 fingerprint.size,
                 ACRCloudConfig.RecognizerType.AUDIO,
@@ -53,13 +50,15 @@ class AcrCloudRecognitionEngine(private val context: Context) : RecognitionEngin
         }
     }
 
-    private fun requireClient(): ACRCloudClient {
-        client?.let { return it }
+    private fun requireClient(keys: AcrCloudCredentials.Keys): ACRCloudClient {
+        client?.takeIf { clientKeys == keys }?.let { return it }
+        // New or changed keys (entered in Settings): start a fresh client.
+        release()
         val config = ACRCloudConfig().apply {
             context = this@AcrCloudRecognitionEngine.context.applicationContext
-            host = BuildConfig.ACRCLOUD_HOST
-            accessKey = BuildConfig.ACRCLOUD_ACCESS_KEY
-            accessSecret = BuildConfig.ACRCLOUD_ACCESS_SECRET
+            host = keys.host
+            accessKey = keys.accessKey
+            accessSecret = keys.accessSecret
             // Sonora owns the microphone. By default initWithConfig() starts an
             // 8 kHz "pre-record" that holds the mic open alongside Sonora's own
             // capture and degrades it, so the SDK gets no recorder at all.
@@ -74,12 +73,14 @@ class AcrCloudRecognitionEngine(private val context: Context) : RecognitionEngin
         val created = ACRCloudClient()
         check(created.initWithConfig(config)) { "ACRCloud client failed to initialise." }
         client = created
+        clientKeys = keys
         return created
     }
 
     override fun release() {
         client?.release()
         client = null
+        clientKeys = null
     }
 
     private companion object {

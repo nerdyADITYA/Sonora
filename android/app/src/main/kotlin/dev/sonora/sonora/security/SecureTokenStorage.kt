@@ -19,9 +19,14 @@ import javax.crypto.spec.GCMParameterSpec
  * never passed to Flutter or written to logs. Android's backup rules exclude
  * this file (see res/xml), and a restored copy couldn't be decrypted anyway.
  */
-class SecureTokenStorage(context: Context, private val keyAlias: String = DEFAULT_ALIAS) {
+class SecureTokenStorage(
+    context: Context,
+    private val keyAlias: String = DEFAULT_ALIAS,
+    prefsName: String = PREFS,
+) {
 
-    private val prefs = context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+    // Each store has its own file, so clearing one (Spotify sign-out) leaves the others.
+    private val prefs = context.applicationContext.getSharedPreferences(prefsName, Context.MODE_PRIVATE)
 
     @Synchronized
     fun put(name: String, value: String?) {

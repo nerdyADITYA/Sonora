@@ -7,6 +7,7 @@ import '../models/bridge_response.dart';
 import '../models/history.dart';
 import '../models/listening_status.dart';
 import '../models/platform_info.dart';
+import '../models/recognition_provider.dart';
 import '../models/recognized_song.dart';
 import '../models/sonora_event.dart';
 import '../models/spotify.dart';
@@ -189,6 +190,31 @@ class SonoraPlatform {
     final data = await _invoke(BridgeMethods.takeLaunchSongId);
     return (data['songId'] as num?)?.toInt();
   }
+
+  /// Which ACRCloud keys are in use (never the key or secret).
+  Future<RecognitionProvider> getRecognitionProvider() async =>
+      RecognitionProvider.fromMap(
+        await _invoke(BridgeMethods.getRecognitionProvider),
+      );
+
+  /// Stores the user's ACRCloud project keys natively (encrypted). Throws a
+  /// [PlatformFailure] with a readable message when they look wrong.
+  Future<RecognitionProvider> setAcrCloudKeys({
+    required String host,
+    required String accessKey,
+    required String accessSecret,
+  }) async => RecognitionProvider.fromMap(
+    await _invoke(BridgeMethods.setAcrCloudKeys, {
+      'host': host,
+      'accessKey': accessKey,
+      'accessSecret': accessSecret,
+    }),
+  );
+
+  Future<RecognitionProvider> clearAcrCloudKeys() async =>
+      RecognitionProvider.fromMap(
+        await _invoke(BridgeMethods.clearAcrCloudKeys),
+      );
 
   /// Broadcast stream of native events; safe to listen to more than once.
   Stream<SonoraEvent> get events => _events ??= _eventsChannel

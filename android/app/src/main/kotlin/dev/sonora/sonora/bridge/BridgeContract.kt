@@ -39,6 +39,9 @@ object BridgeContract {
         const val DISMISS_LISTENING_INTERRUPTION = "dismissListeningInterruption"
         const val REQUEST_ADD_TILE = "requestAddTile"
         const val TAKE_LAUNCH_SONG_ID = "takeLaunchSongId"
+        const val GET_RECOGNITION_PROVIDER = "getRecognitionProvider"
+        const val SET_ACRCLOUD_KEYS = "setAcrCloudKeys"
+        const val CLEAR_ACRCLOUD_KEYS = "clearAcrCloudKeys"
 
         // Part of the published contract but implemented in later phases.
         // They answer with NOT_IMPLEMENTED instead of failing silently.

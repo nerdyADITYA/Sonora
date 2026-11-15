@@ -50,7 +50,6 @@ app.*.map.json
 # Local configuration and secrets — never commit
 .env
 *.env
-!.env.example
 *.jks
 *.keystore
 key.properties

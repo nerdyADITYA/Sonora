@@ -3,8 +3,10 @@
 <data-extraction-rules>
     <cloud-backup>
         <exclude domain="sharedpref" path="sonora_secure.xml" />
+        <exclude domain="sharedpref" path="sonora_provider_keys.xml" />
     </cloud-backup>
     <device-transfer>
         <exclude domain="sharedpref" path="sonora_secure.xml" />
+        <exclude domain="sharedpref" path="sonora_provider_keys.xml" />
     </device-transfer>
 </data-extraction-rules>

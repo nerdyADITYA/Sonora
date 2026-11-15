@@ -6,15 +6,24 @@ plugins {
     id("dev.flutter.flutter-gradle-plugin")
 }
 
-// ACRCloud credentials come from the git-ignored android/local.properties.
-// They are compiled into the APK, which is acceptable only for personal
-// builds. See docs/RECOGNITION_FEASIBILITY.md.
+// Optional developer ACRCloud keys come from the git-ignored
+// android/local.properties and are compiled into DEBUG builds only. Release
+// builds never contain a key: users enter their own in Settings.
 val localProperties = Properties().apply {
     val file = rootProject.file("local.properties")
     if (file.exists()) file.inputStream().use { load(it) }
 }
 
 fun localProperty(key: String): String = localProperties.getProperty(key, "")
+
+// Release signing comes from the git-ignored android/key.properties (see
+// docs/RELEASING.md). Without it, release builds fall back to debug signing
+// so contributors can still build them.
+val keyProperties = Properties().apply {
+    val file = rootProject.file("key.properties")
+    if (file.exists()) file.inputStream().use { load(it) }
+}
+val hasReleaseKey = keyProperties.getProperty("storeFile")?.let { rootProject.file(it).exists() } == true
 
 // The ACRCloud SDK is proprietary and not committed. When the JAR is missing
 // the app still builds, using a stub engine that reports PROVIDER_UNAVAILABLE.
@@ -45,9 +54,6 @@ android {
         versionName = flutter.versionName
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
-        buildConfigField("String", "ACRCLOUD_HOST", "\"${localProperty("acrcloud.host")}\"")
-        buildConfigField("String", "ACRCLOUD_ACCESS_KEY", "\"${localProperty("acrcloud.accessKey")}\"")
-        buildConfigField("String", "ACRCLOUD_ACCESS_SECRET", "\"${localProperty("acrcloud.accessSecret")}\"")
         // Spotify uses PKCE, so only the (non-secret) Client ID is needed.
         buildConfigField("String", "SPOTIFY_CLIENT_ID", "\"${localProperty("spotify.clientId")}\"")
     }
@@ -58,10 +64,29 @@ android {
         }
     }
 
+    signingConfigs {
+        if (hasReleaseKey) {
+            create("release") {
+                storeFile = rootProject.file(keyProperties.getProperty("storeFile"))
+                storePassword = keyProperties.getProperty("storePassword")
+                keyAlias = keyProperties.getProperty("keyAlias")
+                keyPassword = keyProperties.getProperty("keyPassword")
+            }
+        }
+    }
+
     buildTypes {
+        debug {
+            buildConfigField("String", "ACRCLOUD_HOST", "\"${localProperty("acrcloud.host")}\"")
+            buildConfigField("String", "ACRCLOUD_ACCESS_KEY", "\"${localProperty("acrcloud.accessKey")}\"")
+            buildConfigField("String", "ACRCLOUD_ACCESS_SECRET", "\"${localProperty("acrcloud.accessSecret")}\"")
+        }
         release {
-            // Debug signing until a release keystore is set up (Phase 8). Never commit keystores.
-            signingConfig = signingConfigs.getByName("debug")
+            // Never ship a recognition key; see AcrCloudCredentials.
+            buildConfigField("String", "ACRCLOUD_HOST", "\"\"")
+            buildConfigField("String", "ACRCLOUD_ACCESS_KEY", "\"\"")
+            buildConfigField("String", "ACRCLOUD_ACCESS_SECRET", "\"\"")
+            signingConfig = signingConfigs.getByName(if (hasReleaseKey) "release" else "debug")
             proguardFiles("proguard-rules.pro")
         }
     }

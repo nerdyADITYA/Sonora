@@ -34,6 +34,9 @@ abstract final class BridgeMethods {
   static const dismissListeningInterruption = 'dismissListeningInterruption';
   static const requestAddTile = 'requestAddTile';
   static const takeLaunchSongId = 'takeLaunchSongId';
+  static const getRecognitionProvider = 'getRecognitionProvider';
+  static const setAcrCloudKeys = 'setAcrCloudKeys';
+  static const clearAcrCloudKeys = 'clearAcrCloudKeys';
 }
 
 abstract final class BridgeEventTypes {

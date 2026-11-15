@@ -62,6 +62,9 @@ Error codes: `NOT_IMPLEMENTED`, `INVALID_ARGUMENT`, `INTERNAL_ERROR` (native), p
 | `openBatterySettings` | v0.7.0 | none; opens Sonora's app info page, where battery can be set to Unrestricted |
 | `requestAddTile` | v0.7.0 | `result: "added" \| "already_added" \| "not_added" \| "unavailable" \| "unsupported"` (the system prompt needs Android 13+) |
 | `takeLaunchSongId` | v0.7.0 | `songId?`: the song the notification was tapped for, returned once |
+| `getRecognitionProvider` | v0.8.0 | `sdkAvailable, source ("settings" \| "build" \| null), host?`. Never returns the key or secret |
+| `setAcrCloudKeys` | v0.8.0 | args `host, accessKey, accessSecret`. Validated (an `*.acrcloud.com` host; keys without spaces), then stored encrypted; `INVALID_ARGUMENT` with a readable message otherwise. Returns the provider status |
+| `clearAcrCloudKeys` | v0.8.0 | deletes keys entered in Settings. Returns the provider status |
 | `getRecognitionSettings`, `updateRecognitionSettings` | planned | currently return `NOT_IMPLEMENTED` |
 
 `HistoryEntry`: `eventId, songId, source ("manual" | "ambient"), recognizedAt, song: RecognizedSong`.
@@ -110,6 +113,10 @@ ACRCloud can return several candidates. `MatchSelector` drops any below 50, take
 Ambient listening also keeps 40–49 results as `RecognitionOutcome.Tentative`. They are never saved on their own score, but they can confirm or be confirmed by an agreeing sample (AP Dhillon's "Wo Noor" scored 43, then 55). Manual recognition treats them as no match.
 
 Sonora owns the microphone. ACRCloud's SDK is used only to fingerprint PCM and send the fingerprint. By default `ACRCloudClient.initWithConfig` starts its own 8 kHz "pre-record" (`reservedRecordBufferMS` = 3000). That recorder held the microphone next to Sonora's captures and pushed ambient scores down to 46–67. `AcrCloudRecognitionEngine` therefore sets `recorderType = USER` and `reservedRecordBufferMS = 0`, so the SDK never opens an `AudioRecord`.
+
+### ACRCloud keys
+
+`AcrCloudCredentials` uses keys entered in Settings first, then keys compiled into a **debug** build from `local.properties`; release builds have none. The keys are stored in their own `SecureTokenStorage` file (`sonora_provider_keys`), separate from Spotify's, so signing out of Spotify can't wipe them. Both files are excluded from backup. The engine rebuilds its `ACRCloudClient` when the keys change, so new keys work without restarting the app.
 
 ## History (Phase 4)
 

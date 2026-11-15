@@ -4,6 +4,7 @@ import 'package:sonora/core/errors/platform_failure.dart';
 import 'package:sonora/core/models/history.dart';
 import 'package:sonora/core/models/listening_status.dart';
 import 'package:sonora/core/models/platform_info.dart';
+import 'package:sonora/core/models/recognition_provider.dart';
 import 'package:sonora/core/models/recognized_song.dart';
 import 'package:sonora/core/models/sonora_event.dart';
 import 'package:sonora/core/models/spotify.dart';
@@ -51,6 +52,44 @@ class FakePlatform extends SonoraPlatform {
 
   /// Sets what `getListeningStatus` returns, e.g. an interrupted session.
   set listeningStatus(ListeningStatus status) => _status = status;
+
+  RecognitionProvider recognitionProvider = const RecognitionProvider(
+    sdkAvailable: true,
+    source: KeySource.build,
+  );
+  Map<String, String>? savedKeys;
+
+  @override
+  Future<RecognitionProvider> getRecognitionProvider() async =>
+      recognitionProvider;
+
+  @override
+  Future<RecognitionProvider> setAcrCloudKeys({
+    required String host,
+    required String accessKey,
+    required String accessSecret,
+  }) async {
+    if (!host.contains('acrcloud')) {
+      throw const PlatformFailure(
+        'INVALID_ARGUMENT',
+        'Enter the host from your ACRCloud project.',
+      );
+    }
+    savedKeys = {
+      'host': host,
+      'accessKey': accessKey,
+      'accessSecret': accessSecret,
+    };
+    return recognitionProvider = RecognitionProvider(
+      sdkAvailable: true,
+      source: KeySource.settings,
+      host: host,
+    );
+  }
+
+  @override
+  Future<RecognitionProvider> clearAcrCloudKeys() async => recognitionProvider =
+      const RecognitionProvider(sdkAvailable: true, source: KeySource.none);
 
   int batterySettingsOpened = 0;
   String tileResult = 'added';

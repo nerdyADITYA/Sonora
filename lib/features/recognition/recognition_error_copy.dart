@@ -9,9 +9,8 @@ String? recognitionErrorDetail(String? code) => switch (code) {
   'MICROPHONE_UNAVAILABLE' => 'The microphone is busy or unavailable. Close any app using it and try again.',
   'NETWORK_UNAVAILABLE' => "Couldn't reach ACRCloud. Sonora needs an internet connection to identify songs.",
   'INVALID_CREDENTIALS' =>
-    'ACRCloud rejected the credentials. Check android/local.properties.',
-  'NOT_CONFIGURED' =>
-    'ACRCloud credentials are missing from android/local.properties.',
+    'ACRCloud rejected the keys. Check them in Settings › Recognition.',
+  'NOT_CONFIGURED' => 'Add your ACRCloud project keys in Settings › Recognition to identify songs.',
   'PROVIDER_UNAVAILABLE' => 'This build has no recognition engine. See docs/RECOGNITION_FEASIBILITY.md.',
   'QUOTA_EXCEEDED' => 'ACRCloud request limit reached. Try again later.',
   'BUSY' => 'A recognition is already running.',

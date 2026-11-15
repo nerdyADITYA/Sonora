@@ -34,7 +34,7 @@ flutter config --jdk-dir "C:\Program Files\Android\Android Studio\jbr" --android
 Without these steps the app still builds, but **Identify song** reports `PROVIDER_UNAVAILABLE`.
 
 1. Create an ACRCloud project: Audio & Video Recognition, *Recorded Audio*, *Audio Fingerprinting*, the *ACRCloud Music* bucket, and the spotify and isrc external IDs.
-2. Add your credentials to `android/local.properties` (git-ignored):
+2. Enter the project's host, access key and secret in the app under **Settings › Recognition**. For your own debug builds you can instead put them in `android/local.properties` (git-ignored):
    ```properties
    acrcloud.host=identify-<region>.acrcloud.com
    acrcloud.accessKey=...
@@ -46,7 +46,7 @@ Without these steps the app still builds, but **Identify song** reports `PROVIDE
 
    Both are git-ignored, because the SDK has no published licence.
 
-The credentials are compiled into `BuildConfig`, so **never distribute an APK built with your keys.**
+Keys from `local.properties` are compiled into **debug builds only**; release builds never contain a key. Keys entered in Settings take priority and are stored encrypted on the phone. Still, don't share debug APKs built with your keys.
 
 ## Running on the Galaxy S24 Ultra
 
@@ -70,7 +70,7 @@ Kotlin JVM unit tests (policy, audio levels, song keys), run from `android/`:
 gradlew :app:testDebugUnitTest
 ```
 
-Database instrumentation tests run on a connected phone. Gradle's `connectedDebugAndroidTest` uninstalls the app afterwards, which wipes permissions and history, so install and run them directly:
+Instrumentation tests (database, encrypted storage, ACRCloud response parsing) run on a connected phone. Gradle's `connectedDebugAndroidTest` uninstalls the app afterwards, which wipes permissions and history, so install and run them directly:
 
 ```bash
 gradlew :app:assembleDebugAndroidTest

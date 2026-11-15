@@ -33,7 +33,7 @@ Source: [ACRCloudUniversalSDK](https://github.com/acrcloud/ACRCloudUniversalSDK)
 
 - The mobile SDK expects the access secret on the device, so anyone who unpacks a built APK can extract it.
 - **Personal beta:** credentials come from git-ignored `android/local.properties` and are injected at build time. Builds stay on the maintainer's phone.
-- **Public release (v1.0):** either "bring your own ACRCloud project" (credentials entered in Settings, stored in Android Keystore-backed storage) or a small signing proxy. Decide before Phase 8.
+- **Public release (decided in Phase 8, v0.8.0):** bring your own ACRCloud project. Users enter their keys in Settings › Recognition, where they are stored AES-GCM encrypted with an Android Keystore key. Release builds contain no key, and releases are source-only because the SDK can't be redistributed.
 
 ### Cost model to validate in the prototype
 
