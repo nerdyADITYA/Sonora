@@ -14,15 +14,18 @@ import android.util.Log
 import dev.sonora.sonora.MainActivity
 import dev.sonora.sonora.R
 import dev.sonora.sonora.recognition.SpotifyLinks
-import dev.sonora.sonora.services.ListeningPhase
 import dev.sonora.sonora.services.ServiceStateManager
 import dev.sonora.sonora.services.SonoraRecognitionService
+import dev.sonora.sonora.services.statusText
+import dev.sonora.sonora.spotify.SpotifyManager
 import java.net.HttpURLConnection
 import java.net.URL
 
 /**
  * The single, silent, ongoing listening notification. It shows status or the
- * last recognised song, with Stop and (when known) Open in Spotify actions.
+ * last recognised song, with Stop and, when possible, Save to the default
+ * Spotify playlist and Open in Spotify. Tapping a song opens it in Sonora.
+ * The lock screen shows only "Sonora is listening".
  */
 class RecognitionNotificationManager(private val context: Context) {
 
@@ -42,7 +45,7 @@ class RecognitionNotificationManager(private val context: Context) {
 
     fun build(state: ServiceStateManager.Snapshot): Notification {
         val song = state.lastSong
-        val status = statusText(state)
+        val status = state.statusText()
 
         val builder = newBuilder()
             .setSmallIcon(R.drawable.ic_stat_sonora)
@@ -50,7 +53,7 @@ class RecognitionNotificationManager(private val context: Context) {
             .setOnlyAlertOnce(true)
             .setShowWhen(false)
             .setCategory(Notification.CATEGORY_SERVICE)
-            .setContentIntent(openAppIntent())
+            .setContentIntent(openAppIntent(state.lastSongId))
             .setVisibility(Notification.VISIBILITY_PRIVATE)
             .setPublicVersion(publicVersion())
             .addAction(Notification.Action.Builder(null, "Stop", stopIntent()).build())
@@ -61,9 +64,15 @@ class RecognitionNotificationManager(private val context: Context) {
             builder
                 .setContentTitle(song.title)
                 .setContentText(song.artist)
-                .setSubText(status)
+                .setSubText(state.savedTo?.let { "Saved to $it" } ?: status)
                 .setLargeIcon(artworkFor(song.artworkUrl))
-            // Shown only for songs ACRCloud matched to Spotify, so the search finds it.
+            val playlist = if (state.savedTo == null) SpotifyManager.get(context).defaultPlaylist() else null
+            if (song.spotifyTrackId != null && state.lastSongId != null && playlist != null) {
+                builder.addAction(
+                    Notification.Action.Builder(null, "Save to ${playlist.second}", saveIntent(state.lastSongId)).build(),
+                )
+            }
+            // Shown only for songs matched to Spotify, so the search finds it.
             if (song.spotifyTrackId != null) {
                 builder.addAction(
                     Notification.Action.Builder(null, "Open in Spotify", spotifyIntent(song.title, song.artist)).build(),
@@ -80,16 +89,6 @@ class RecognitionNotificationManager(private val context: Context) {
             // POST_NOTIFICATIONS denied: the service keeps running; Android still lists it in the task manager.
             Log.w(TAG, "Notification not shown", e)
         }
-    }
-
-    private fun statusText(state: ServiceStateManager.Snapshot): String = when (state.phase) {
-        ListeningPhase.STOPPED -> "Stopped"
-        ListeningPhase.WAITING -> "Listening for music"
-        ListeningPhase.LISTENING -> "Listening…"
-        ListeningPhase.MATCHING -> "Identifying…"
-        ListeningPhase.PAUSED_BUDGET -> "Paused: daily limit of ${state.dailyBudget} reached"
-        ListeningPhase.MICROPHONE_BLOCKED -> "Microphone blocked or in use"
-        ListeningPhase.OFFLINE -> "Waiting for an internet connection"
     }
 
     /** Downloads artwork once per URL. Call from a worker thread (the service's). */
@@ -125,10 +124,20 @@ class RecognitionNotificationManager(private val context: Context) {
             Notification.Builder(context).setPriority(Notification.PRIORITY_LOW)
         }
 
-    private fun openAppIntent(): PendingIntent = PendingIntent.getActivity(
+    /** Opens the app, on the song's page when there is one. */
+    private fun openAppIntent(songId: Long?): PendingIntent = PendingIntent.getActivity(
         context,
         0,
-        Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP),
+        Intent(context, MainActivity::class.java)
+            .addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
+            .apply { songId?.let { putExtra(MainActivity.EXTRA_SONG_ID, it) } },
+        PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+    )
+
+    private fun saveIntent(songId: Long): PendingIntent = PendingIntent.getBroadcast(
+        context,
+        3,
+        Intent(context, SaveToPlaylistReceiver::class.java).putExtra(SaveToPlaylistReceiver.EXTRA_SONG_ID, songId),
         PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
     )
 

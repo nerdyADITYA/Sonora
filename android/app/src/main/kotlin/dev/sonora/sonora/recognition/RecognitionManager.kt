@@ -78,7 +78,12 @@ class RecognitionManager(context: Context) {
             }
             // Measured before the artwork lookup so it reflects recognition latency only.
             val elapsed = SystemClock.elapsedRealtime() - started
-            val enriched = if (outcome is RecognitionOutcome.Match) withArtwork(outcome) else outcome
+            val enriched = when (outcome) {
+                is RecognitionOutcome.Match -> withArtwork(outcome)
+                // Too weak to show on its own; only ambient listening can confirm it.
+                is RecognitionOutcome.Tentative -> RecognitionOutcome.NoMatch
+                else -> outcome
+            }
             busy.set(false)
             mainHandler.post { onComplete(enriched, elapsed) }
         }

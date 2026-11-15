@@ -5,6 +5,7 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
+import dev.sonora.sonora.bridge.LaunchRequests
 import dev.sonora.sonora.bridge.PermissionRequester
 import dev.sonora.sonora.bridge.SonoraEventChannel
 import dev.sonora.sonora.bridge.SonoraMethodChannel
@@ -33,12 +34,22 @@ class MainActivity : FlutterActivity(), PermissionRequester {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         handleSpotifyRedirect(intent)
+        handleOpenSong(intent)
     }
 
     // launchMode is singleTop, so the Spotify redirect usually arrives here.
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         handleSpotifyRedirect(intent)
+        handleOpenSong(intent)
+    }
+
+    /** The listening notification opens a specific song. */
+    private fun handleOpenSong(intent: Intent?) {
+        val songId = intent?.getLongExtra(EXTRA_SONG_ID, -1L) ?: return
+        if (songId < 0) return
+        intent.removeExtra(EXTRA_SONG_ID) // Not again after a configuration change.
+        LaunchRequests.offer(songId)
     }
 
     /** Finishes Spotify sign-in off the main thread; the result reaches Flutter as `spotify_status`. */
@@ -113,10 +124,11 @@ class MainActivity : FlutterActivity(), PermissionRequester {
         else -> DENIED
     }
 
-    private companion object {
-        const val REQUEST_PERMISSIONS = 4101
-        const val GRANTED = "granted"
-        const val DENIED = "denied"
-        const val PERMANENTLY_DENIED = "permanently_denied"
+    companion object {
+        const val EXTRA_SONG_ID = "dev.sonora.sonora.extra.OPEN_SONG_ID"
+        private const val REQUEST_PERMISSIONS = 4101
+        private const val GRANTED = "granted"
+        private const val DENIED = "denied"
+        private const val PERMANENTLY_DENIED = "permanently_denied"
     }
 }

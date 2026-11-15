@@ -49,6 +49,30 @@ class FakePlatform extends SonoraPlatform {
   @override
   Future<ListeningStatus> getListeningStatus() async => _status;
 
+  /// Sets what `getListeningStatus` returns, e.g. an interrupted session.
+  set listeningStatus(ListeningStatus status) => _status = status;
+
+  int batterySettingsOpened = 0;
+  String tileResult = 'added';
+  int? launchSongId;
+
+  @override
+  Future<void> openBatterySettings() async => batterySettingsOpened++;
+
+  @override
+  Future<ListeningStatus> dismissListeningInterruption() async =>
+      _status = ListeningStatus.stopped;
+
+  @override
+  Future<String> requestAddTile() async => tileResult;
+
+  @override
+  Future<int?> takeLaunchSongId() async {
+    final id = launchSongId;
+    launchSongId = null;
+    return id;
+  }
+
   @override
   Future<ListeningStatus> startListening() async => _status = ListeningStatus(
     listening: true,

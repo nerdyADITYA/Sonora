@@ -10,7 +10,10 @@ import dev.sonora.sonora.database.SongKeys
  * upload for Drake's "God's Plan") and 64 (a re-release of Ed Sheeran's
  * "Shape of You" credited to another artist). One cut-off can't separate
  * them, so there are three bands:
- * - below [MIN_SCORE]: rejected;
+ * - below [TENTATIVE_SCORE]: rejected;
+ * - [TENTATIVE_SCORE] to [MIN_SCORE]: never accepted alone, but held by ambient
+ *   listening so it can confirm, or be confirmed by, an agreeing sample
+ *   (AP Dhillon's "Wo Noor" scored 43 then 55 on 2026-11-15);
  * - [MIN_SCORE] to [CONFIDENT_SCORE]: accepted only once a second sample
  *   agrees ([confirms]); ambient listening re-checks soon to get it;
  * - [CONFIDENT_SCORE] and up: accepted.
@@ -19,6 +22,7 @@ import dev.sonora.sonora.database.SongKeys
  */
 object MatchSelector {
 
+    const val TENTATIVE_SCORE = 40
     const val MIN_SCORE = 50
     const val CONFIDENT_SCORE = 70
 
@@ -46,6 +50,13 @@ object MatchSelector {
             .first()
         return Selection(chosen.song, confident = bestScore >= CONFIDENT_SCORE)
     }
+
+    /** The best candidate scoring [TENTATIVE_SCORE] to just under [MIN_SCORE], when [choose] finds nothing. */
+    fun tentative(candidates: List<Candidate>): RecognizedSong? =
+        candidates
+            .filter { it.score != null && it.score >= TENTATIVE_SCORE && it.score < MIN_SCORE }
+            .maxByOrNull { it.score!! }
+            ?.song
 
     /** True when [later] is the same song as an unconfirmed [earlier] match (title and first artist). */
     fun confirms(earlier: RecognizedSong, later: RecognizedSong): Boolean =

@@ -60,7 +60,12 @@ class AcrCloudRecognitionEngine(private val context: Context) : RecognitionEngin
             host = BuildConfig.ACRCLOUD_HOST
             accessKey = BuildConfig.ACRCLOUD_ACCESS_KEY
             accessSecret = BuildConfig.ACRCLOUD_ACCESS_SECRET
-            // Sonora owns the microphone, so the SDK recorder is never started.
+            // Sonora owns the microphone. By default initWithConfig() starts an
+            // 8 kHz "pre-record" that holds the mic open alongside Sonora's own
+            // capture and degrades it, so the SDK gets no recorder at all.
+            recorderType = ACRCloudConfig.RecorderType.USER
+            recorderConfig.reservedRecordBufferMS = 0
+            recorderConfig.isVolumeCallback = false
             acrcloudListener = object : IACRCloudListener {
                 override fun onResult(result: ACRCloudResult?) = Unit
                 override fun onVolumeChanged(volume: Double) = Unit

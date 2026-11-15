@@ -54,8 +54,16 @@ class SonoraRecognitionService : Service() {
     private var running = false
     private var consecutiveNoMatches = 0
 
-    /** A 50–69 score match waiting for a second sample to agree, and when it was heard. */
+    /** Re-posts the notification when the state changes (also from the notification's Save action). */
+    private val stateListener: (ServiceStateManager.Snapshot) -> Unit = { state ->
+        worker.post { if (running) notifications.update(state) }
+    }
+
+    /** A 40–69 score match waiting for a second sample to agree, and when it was heard. */
     private var unconfirmed: Pair<RecognizedSong, Long>? = null
+
+    /** Quick retries used on the current [unconfirmed] match after samples with no result. */
+    private var confirmRetries = 0
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -68,6 +76,7 @@ class SonoraRecognitionService : Service() {
         notifications = RecognitionNotificationManager(this)
         workerThread = HandlerThread("sonora-listening").also { it.start() }
         worker = Handler(workerThread.looper)
+        ServiceStateManager.addListener(stateListener)
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -109,6 +118,7 @@ class SonoraRecognitionService : Service() {
 
         running = true
         consecutiveNoMatches = 0
+        ListeningRecovery.markStarted(this)
         acquireWakeLock()
         worker.post(::runCycle)
     }
@@ -128,6 +138,7 @@ class SonoraRecognitionService : Service() {
 
     private fun stopListening() {
         running = false
+        ListeningRecovery.markStopped(this)
         audio.cancel()
         worker.removeCallbacksAndMessages(null)
         releaseWakeLock()
@@ -138,6 +149,7 @@ class SonoraRecognitionService : Service() {
 
     private fun fail(code: String) {
         running = false
+        ListeningRecovery.markStopped(this)
         ServiceStateManager.update { it.copy(phase = ListeningPhase.STOPPED, nextCheckAt = null, lastError = code) }
         stopSelf()
     }
@@ -153,7 +165,7 @@ class SonoraRecognitionService : Service() {
 
         // Online only: don't open the microphone or spend a request without a connection.
         if (!Connectivity.isOnline(this)) {
-            schedule(ListeningPolicy.OFFLINE_RECHECK_MS, ListeningPhase.OFFLINE)
+            schedule(idle(ListeningPolicy.OFFLINE_RECHECK_MS), ListeningPhase.OFFLINE)
             return
         }
 
@@ -177,8 +189,14 @@ class SonoraRecognitionService : Service() {
 
         when (capture) {
             GatedCapture.Silent -> schedule(ListeningPolicy.SILENT_DELAY_MS, ListeningPhase.MICROPHONE_BLOCKED)
-            is GatedCapture.TooQuiet -> schedule(ListeningPolicy.QUIET_DELAY_MS)
-            is GatedCapture.Captured -> recognise(capture.pcm)
+            is GatedCapture.TooQuiet -> {
+                Log.i(TAG, "Too quiet: %.1f dBFS".format(capture.levelDbfs))
+                schedule(idle(ListeningPolicy.QUIET_DELAY_MS))
+            }
+            is GatedCapture.Captured -> {
+                Log.i(TAG, "Captured at %.1f dBFS".format(capture.levelDbfs))
+                recognise(capture.pcm)
+            }
         }
     }
 
@@ -208,13 +226,38 @@ class SonoraRecognitionService : Service() {
                     // Uncertain: hold it and listen again soon instead of saving a possible wrong song.
                     else -> {
                         unconfirmed = song to now
+                        confirmRetries = 0
                         schedule(ListeningPolicy.CONFIRM_DELAY_MS)
                     }
                 }
             }
+            is RecognitionOutcome.Tentative -> {
+                consecutiveNoMatches = 0
+                val song = outcome.song
+                val now = System.currentTimeMillis()
+                val pending = unconfirmed?.takeIf { now - it.second < ListeningPolicy.CONFIRM_WINDOW_MS }?.first
+                if (pending != null && MatchSelector.confirms(pending, song)) {
+                    // Two weak samples agreeing. Keep the earlier one: it may have scored higher.
+                    unconfirmed = null
+                    saveAndAnnounce(pending)
+                    schedule(ListeningPolicy.delayAfterMatch(pending.durationMs, pending.playOffsetMs))
+                } else {
+                    unconfirmed = song to now
+                    confirmRetries = 0
+                    schedule(ListeningPolicy.CONFIRM_DELAY_MS)
+                }
+            }
             RecognitionOutcome.NoMatch -> {
-                consecutiveNoMatches++
-                schedule(ListeningPolicy.delayAfterNoMatch(consecutiveNoMatches))
+                val now = System.currentTimeMillis()
+                val pending = unconfirmed?.takeIf { now - it.second < ListeningPolicy.CONFIRM_WINDOW_MS }
+                if (pending != null && confirmRetries < ListeningPolicy.CONFIRM_RETRIES) {
+                    // A song was just heard; one blank sample shouldn't lose it.
+                    confirmRetries++
+                    schedule(ListeningPolicy.CONFIRM_DELAY_MS)
+                } else {
+                    consecutiveNoMatches++
+                    schedule(idle(ListeningPolicy.delayAfterNoMatch(consecutiveNoMatches)))
+                }
             }
             is RecognitionOutcome.Failure -> when (outcome.code) {
                 // Retrying can't fix these; stop rather than burn battery.
@@ -253,7 +296,7 @@ class SonoraRecognitionService : Service() {
                     runCatching { history.updateArtwork(recorded.songId, url) }
                 }
             }
-        ServiceStateManager.announceSong(withArtwork)
+        ServiceStateManager.announceSong(withArtwork, recorded?.songId)
     }
 
     private fun schedule(delayMs: Long, phase: ListeningPhase = ListeningPhase.WAITING, error: String? = null) {
@@ -263,16 +306,17 @@ class SonoraRecognitionService : Service() {
                 phase = phase,
                 nextCheckAt = System.currentTimeMillis() + delayMs,
                 requestsToday = budget.usedToday(),
+                powerSave = ListeningRecovery.powerSaveOn(this),
                 lastError = error,
             )
         }
-        notifications.update(ServiceStateManager.snapshot)
         worker.postDelayed(::runCycle, delayMs)
     }
 
+    private fun idle(delayMs: Long) = ListeningPolicy.idleDelay(delayMs, ListeningRecovery.powerSaveOn(this))
+
     private fun setPhase(phase: ListeningPhase) {
         ServiceStateManager.update { it.copy(phase = phase, nextCheckAt = null) }
-        notifications.update(ServiceStateManager.snapshot)
     }
 
     private fun mainThread(block: () -> Unit) = Handler(mainLooper).post(block)
@@ -295,8 +339,11 @@ class SonoraRecognitionService : Service() {
     }
 
     override fun onDestroy() {
+        ServiceStateManager.removeListener(stateListener)
         if (running) {
+            // An orderly stop from outside the app (e.g. One UI's active apps list).
             running = false
+            ListeningRecovery.markStopped(this)
             audio.cancel()
             ServiceStateManager.update { it.copy(phase = ListeningPhase.STOPPED, nextCheckAt = null) }
         }

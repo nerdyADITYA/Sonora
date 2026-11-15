@@ -11,7 +11,8 @@ package dev.sonora.sonora.services
  */
 object ListeningPolicy {
     const val PROBE_MS = 3_000
-    const val CAPTURE_MS = 10_000
+    /** 12 s, not 10: ACRCloud scores rise with a longer sample, and it costs no extra request. */
+    const val CAPTURE_MS = 12_000
 
     /**
      * Probe level needed before a full capture. A loudness gate, not a music
@@ -32,11 +33,20 @@ object ListeningPolicy {
     const val AFTER_MATCH_DEFAULT_DELAY_MS = 120_000L
     const val SONG_END_MARGIN_MS = 5_000L
 
-    /** A 50–69 score match is re-checked this soon; a second agreeing sample confirms it. */
     /** How often to check for a connection again while offline. */
     const val OFFLINE_RECHECK_MS = 60_000L
 
-    const val CONFIRM_DELAY_MS = 20_000L
+    /** Idle waits are multiplied by this while battery saver is on. */
+    const val POWER_SAVE_FACTOR = 2
+
+    /**
+     * A 40–69 score match is re-checked straight away (the music is still
+     * playing); a second agreeing sample confirms it.
+     */
+    const val CONFIRM_DELAY_MS = 1_000L
+
+    /** Extra quick samples while a match is unconfirmed, when a sample comes back with no result. */
+    const val CONFIRM_RETRIES = 2
 
     /** An unconfirmed match expires if no agreeing sample arrives within this time. */
     const val CONFIRM_WINDOW_MS = 3 * 60_000L
@@ -57,4 +67,10 @@ object ListeningPolicy {
         val remaining = durationMs.toLong() - playOffsetMs - captureMs + SONG_END_MARGIN_MS
         return remaining.coerceIn(AFTER_MATCH_MIN_DELAY_MS, AFTER_MATCH_MAX_DELAY_MS)
     }
+
+    /**
+     * Idle waits (quiet room, no match, offline) are doubled under battery
+     * saver. Waits that follow a match are left alone so a new song isn't missed.
+     */
+    fun idleDelay(delayMs: Long, powerSave: Boolean): Long = if (powerSave) delayMs * POWER_SAVE_FACTOR else delayMs
 }

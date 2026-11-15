@@ -19,47 +19,74 @@ class ListeningCard extends ConsumerWidget {
     final listening = state.listening;
     final (title, subtitle, accent) = _describe(context, state);
 
+    final interrupted = !listening && (status?.interrupted ?? false);
+
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(20),
-        child: Row(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Container(
-              width: 48,
-              height: 48,
-              decoration: BoxDecoration(
-                color: listening ? accent : AppColors.surfaceHigh,
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                listening ? Icons.graphic_eq : Icons.mic_off_outlined,
-                color: listening ? AppColors.onAccent : AppColors.textSecondary,
-              ),
+            Row(
+              children: [
+                Container(
+                  width: 48,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    color: listening ? accent : AppColors.surfaceHigh,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    listening ? Icons.graphic_eq : Icons.mic_off_outlined,
+                    color: listening
+                        ? AppColors.onAccent
+                        : AppColors.textSecondary,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(title, style: theme.textTheme.titleMedium),
+                      if (subtitle != null) ...[
+                        const SizedBox(height: 4),
+                        Text(
+                          subtitle,
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                Switch(
+                  value: listening,
+                  onChanged: status == null || state.toggling
+                      ? null
+                      : (on) => on ? controller.start() : controller.stop(),
+                ),
+              ],
             ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(title, style: theme.textTheme.titleMedium),
-                  if (subtitle != null) ...[
-                    const SizedBox(height: 4),
-                    Text(
-                      subtitle,
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: AppColors.textSecondary,
+            if (interrupted)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Wrap(
+                  spacing: 8,
+                  children: [
+                    if (!(status?.batteryUnrestricted ?? true))
+                      TextButton(
+                        onPressed: controller.openBatterySettings,
+                        child: const Text('Battery settings'),
                       ),
+                    TextButton(
+                      onPressed: controller.dismissInterruption,
+                      child: const Text('Dismiss'),
                     ),
                   ],
-                ],
+                ),
               ),
-            ),
-            Switch(
-              value: listening,
-              onChanged: status == null || state.toggling
-                  ? null
-                  : (on) => on ? controller.start() : controller.stop(),
-            ),
           ],
         ),
       ),
@@ -72,6 +99,17 @@ class ListeningCard extends ConsumerWidget {
   ) {
     final status = state.status;
     if (status == null) return ('Checking…', null, AppColors.accent);
+
+    if (!status.listening && status.interrupted && state.startError == null) {
+      return (
+        'Listening was stopped',
+        status.batteryUnrestricted
+            ? 'Android stopped Sonora in the background. Turn it back on to keep listening.'
+            : 'One UI stopped Sonora to save battery. Turn it back on, and set '
+                  'Battery to Unrestricted so it keeps running.',
+        AppColors.warning,
+      );
+    }
 
     if (!status.listening) {
       final error = state.startError ?? status.lastError;
@@ -108,7 +146,11 @@ class ListeningCard extends ConsumerWidget {
       ),
       _ => (
         'Listening for music',
-        [?next, usage].join(' · '),
+        [
+          ?next,
+          usage,
+          if (status.powerSave) 'battery saver: checking less often',
+        ].join(' · '),
         AppColors.accent,
       ),
     };

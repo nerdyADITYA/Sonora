@@ -68,7 +68,11 @@ object AcrCloudResponseParser {
         if (BuildConfig.DEBUG) {
             Log.i(TAG, chosen?.let { "chosen: ${it.song.title} / ${it.song.artist}, confident=${it.confident}" } ?: "chosen: none")
         }
-        chosen ?: return RecognitionOutcome.NoMatch
+        if (chosen == null) {
+            val tentative = MatchSelector.tentative(candidates) ?: return RecognitionOutcome.NoMatch
+            if (BuildConfig.DEBUG) Log.i(TAG, "tentative: ${tentative.title} / ${tentative.artist}")
+            return RecognitionOutcome.Tentative(tentative)
+        }
         return RecognitionOutcome.Match(chosen.song, chosen.confident)
     }
 

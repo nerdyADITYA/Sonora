@@ -18,6 +18,7 @@ object SpotifyErrorCodes {
     const val RATE_LIMITED = "SPOTIFY_RATE_LIMITED"
     const val NETWORK = "NETWORK_UNAVAILABLE"
     const val NOT_FOUND = "SPOTIFY_TRACK_NOT_FOUND"
+    const val PLAYLIST_NOT_FOUND = "SPOTIFY_PLAYLIST_NOT_FOUND"
     const val NEEDS_MATCH = "SPOTIFY_NEEDS_MATCH"
     const val API_ERROR = "SPOTIFY_API_ERROR"
 }

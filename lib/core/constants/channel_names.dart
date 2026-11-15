@@ -30,6 +30,10 @@ abstract final class BridgeMethods {
   static const addToSpotifyPlaylist = 'addToSpotifyPlaylist';
   static const getSpotifySyncStatus = 'getSpotifySyncStatus';
   static const retrySpotifySync = 'retrySpotifySync';
+  static const openBatterySettings = 'openBatterySettings';
+  static const dismissListeningInterruption = 'dismissListeningInterruption';
+  static const requestAddTile = 'requestAddTile';
+  static const takeLaunchSongId = 'takeLaunchSongId';
 }
 
 abstract final class BridgeEventTypes {
@@ -40,4 +44,5 @@ abstract final class BridgeEventTypes {
   static const songRecognized = 'song_recognized';
   static const historyChanged = 'history_changed';
   static const spotifyStatus = 'spotify_status';
+  static const openSong = 'open_song';
 }

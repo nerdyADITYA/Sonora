@@ -36,7 +36,7 @@ Error codes: `NOT_IMPLEMENTED`, `INVALID_ARGUMENT`, `INTERNAL_ERROR` (native), p
 | Method | Status | `data` |
 |---|---|---|
 | `getPlatformInfo` | v0.1.0 | `manufacturer, brand, model, device, androidVersion, sdkInt, securityPatch, isSamsung, appVersion` |
-| `getListeningStatus` | v0.3.0 | `listening, available, phase, nextCheckAt?, requestsToday, dailyBudget, lastSong?, lastError?` |
+| `getListeningStatus` | v0.3.0 | `listening, available, phase, nextCheckAt?, requestsToday, dailyBudget, lastSong?, lastSongId?, savedTo?, lastError?`; v0.7.0 adds `powerSave`, `interrupted` (Android stopped listening last time), `batteryUnrestricted` |
 | `requestPermissions` | v0.3.0 | `microphone`, `notifications`: each `"granted" \| "denied" \| "permanently_denied"` (shows the system prompts if needed) |
 | `startListening` | v0.3.0 | listening status. Starts the microphone foreground service; call only while the app is visible |
 | `stopListening` | v0.3.0 | none; stops the service and releases the microphone |
@@ -58,6 +58,10 @@ Error codes: `NOT_IMPLEMENTED`, `INVALID_ARGUMENT`, `INTERNAL_ERROR` (native), p
 | `addToSpotifyPlaylist` | v0.5.0 | args `songId, playlistId, playlistName?, trackId?`. `result: "added" \| "already_in_playlist"` |
 | `getSpotifySyncStatus` | v0.5.0 | args `songId`. `items: PlaylistSyncItem[]` |
 | `retrySpotifySync` | v0.5.0 | `retried` (failed adds pushed again), `updated` (songs switched to Spotify's usual release) |
+| `dismissListeningInterruption` | v0.7.0 | none; clears `interrupted` |
+| `openBatterySettings` | v0.7.0 | none; opens Sonora's app info page, where battery can be set to Unrestricted |
+| `requestAddTile` | v0.7.0 | `result: "added" \| "already_added" \| "not_added" \| "unavailable" \| "unsupported"` (the system prompt needs Android 13+) |
+| `takeLaunchSongId` | v0.7.0 | `songId?`: the song the notification was tapped for, returned once |
 | `getRecognitionSettings`, `updateRecognitionSettings` | planned | currently return `NOT_IMPLEMENTED` |
 
 `HistoryEntry`: `eventId, songId, source ("manual" | "ambient"), recognizedAt, song: RecognizedSong`.
@@ -68,7 +72,7 @@ Recognition error codes: `PERMISSION_REQUIRED`, `MICROPHONE_UNAVAILABLE`, `MICRO
 
 `recognizeOnce` also returns `confident`: false for a 50–69% match, which the app shows as "Possible match".
 
-Spotify error codes: `SPOTIFY_NOT_CONFIGURED`, `SPOTIFY_NOT_CONNECTED`, `SPOTIFY_AUTH_CANCELLED`, `SPOTIFY_AUTH_FAILED`, `SPOTIFY_RATE_LIMITED`, `SPOTIFY_FORBIDDEN` (account not under User Management, or the owner lacks Premium), `SPOTIFY_TRACK_NOT_FOUND`, `SPOTIFY_NEEDS_MATCH`, `SPOTIFY_API_ERROR`; network failures use `NETWORK_UNAVAILABLE`.
+Spotify error codes: `SPOTIFY_NOT_CONFIGURED`, `SPOTIFY_NOT_CONNECTED`, `SPOTIFY_AUTH_CANCELLED`, `SPOTIFY_AUTH_FAILED`, `SPOTIFY_RATE_LIMITED`, `SPOTIFY_FORBIDDEN` (account not under User Management, or the owner lacks Premium), `SPOTIFY_TRACK_NOT_FOUND`, `SPOTIFY_PLAYLIST_NOT_FOUND` (the playlist was deleted; the default is forgotten and the add isn't retried), `SPOTIFY_NEEDS_MATCH`, `SPOTIFY_API_ERROR`; network failures use `NETWORK_UNAVAILABLE`.
 
 Listening phases (`phase`): `stopped`, `waiting`, `listening`, `matching`, `paused_budget`, `microphone_blocked`, `offline` (no internet; microphone off).
 
@@ -86,6 +90,7 @@ Envelope: `{ "type": String, "timestamp": epochMillis, "data": Map? }`
 | `listening_status` | v0.3.0 | the service's state changes. `data` is the same map as `getListeningStatus` |
 | `history_changed` | v0.4.0 | history was added to, edited or deleted; lists reload |
 | `spotify_status` | v0.5.0 | Spotify sign-in finished, failed (`error`), or the connection or default playlist changed. `data` is the same map as `getSpotifyStatus` |
+| `open_song` | v0.7.0 | the notification was tapped while the app was running. `data`: `songId` |
 | `song_recognized` | v0.3.0 | ambient listening found a new song (duplicates are suppressed). `data` is a `RecognizedSong` |
 
 ## Recognition (native)
@@ -100,7 +105,11 @@ RecognitionManager ── AudioCaptureManager (AudioRecord, 44.1 kHz PCM16 mono,
 
 ### Choosing a match
 
-ACRCloud can return several candidates. `MatchSelector` drops any below 50, takes the best, and among candidates with the same title within 10 points prefers the earliest release (so a compilation doesn't win). A best score of 70 or more is accepted. Between 50 and 69, ambient listening holds the match and listens again about 20 s later, saving it only if the second sample names the same title and primary artist within 3 minutes. Real scores seen on a Galaxy S24 Ultra: correct matches 58–100, wrong ones 28 and 64.
+ACRCloud can return several candidates. `MatchSelector` drops any below 50, takes the best, and among candidates with the same title within 10 points prefers the earliest release (so a compilation doesn't win). A best score of 70 or more is accepted. Between 50 and 69, ambient listening holds the match and records again straight away, saving it only if the second sample names the same title and primary artist within 3 minutes. If that sample comes back empty, it tries up to twice more before backing off, so one blank sample during a quiet passage doesn't lose the song. Real scores seen on a Galaxy S24 Ultra: correct matches 58–100, wrong ones 28 and 64.
+
+Ambient listening also keeps 40–49 results as `RecognitionOutcome.Tentative`. They are never saved on their own score, but they can confirm or be confirmed by an agreeing sample (AP Dhillon's "Wo Noor" scored 43, then 55). Manual recognition treats them as no match.
+
+Sonora owns the microphone. ACRCloud's SDK is used only to fingerprint PCM and send the fingerprint. By default `ACRCloudClient.initWithConfig` starts its own 8 kHz "pre-record" (`reservedRecordBufferMS` = 3000). That recorder held the microphone next to Sonora's captures and pushed ambient scores down to 46–67. `AcrCloudRecognitionEngine` therefore sets `recorderType = USER` and `reservedRecordBufferMS = 0`, so the SDK never opens an `AudioRecord`.
 
 ## History (Phase 4)
 
@@ -136,14 +145,21 @@ online? ── no ──> offline, re-check in 60 s   (microphone off, no reques
    │ yes
 probe 3 s ── digital silence ──> microphone_blocked, retry in 30 s
    │      └─ quieter than -50 dBFS ──> waiting, retry in 20 s   (no request)
-capture to 10 s → fingerprint → ACRCloud (1 request counted)
+capture to 12 s → fingerprint → ACRCloud (1 request counted)
    ├─ match    → announce unless same track within 15 min; wait out the rest of the song (45 s–4 min)
    ├─ no match → back off 30 s → 60 s → 120 s
    └─ error    → retry in 60 s; credentials or engine errors stop the service
 ```
 
-`ListeningPolicy` holds the numbers and is unit-tested. `RequestBudget` caps requests at 200 per local day. The microphone is open only during probe and capture; a partial wake lock keeps checks on schedule with the screen off. That wake lock is the main battery cost, measured in Phase 7.
+`ListeningPolicy` holds the numbers and is unit-tested. `RequestBudget` caps requests at 200 per local day. The microphone is open only during probe and capture; a partial wake lock keeps checks on schedule with the screen off. That wake lock is the main battery cost. It hasn't been measured yet (deferred in Phase 7).
 
 `RecognitionNotificationManager` shows a single, silent, ongoing notification with the status or the last song (title, artist, album art), a **Stop** action and, when known, **Open in Spotify**. The lock screen shows only "Sonora is listening".
+
+## Samsung integration (Phase 7)
+
+- **Quick Settings tile:** `ListeningTileService` (`TOGGLEABLE_TILE`) follows `ServiceStateManager` through a listener while the panel is open. Android only lets a microphone foreground service start while the app is visible, so turning listening on opens the invisible `StartListeningActivity`. On Android 14+ this goes through `startActivityAndCollapse(PendingIntent)`; on the lock screen it goes through `unlockAndRun`. Turning listening off stops the service directly. `requestAddTile` uses `StatusBarManager.requestAddTileService`.
+- **Notification:** the service reposts the notification from a `ServiceStateManager` listener. Tapping it opens `MainActivity` with the song's ID: a cold start reads it with `takeLaunchSongId`, and a running app gets an `open_song` event. **Save to <playlist>** is a broadcast to `SaveToPlaylistReceiver` (not exported). It uses `goAsync` and the same `SpotifyManager.addSong` queue as the app, then shows "Saved to …" on the notification. It appears only when the song has a Spotify track ID and a default playlist is set.
+- **Recovery:** `ListeningRecovery` records that listening should be on, and clears it on every intended stop. If the flag is still set when the service isn't running, Android stopped it, and the app shows "Listening was stopped". It offers battery settings unless `isIgnoringBatteryOptimizations` is already true. A microphone service can't restart itself from the background, so this is a notice, not an automatic restart.
+- **Battery saver:** when `PowerManager.isPowerSaveMode` is true, the waits after a quiet probe, a no-match or being offline are doubled (`ListeningPolicy.idleDelay`). The wait after a match isn't changed, so the next song isn't missed. Android pauses battery saver while charging, so test it unplugged (or with `adb shell dumpsys battery unplug`).
 
 `app/build.gradle.kts` picks the source set depending on whether `android/app/libs/acrcloud-universal-sdk-*.jar` exists, so clones without the proprietary SDK still build.

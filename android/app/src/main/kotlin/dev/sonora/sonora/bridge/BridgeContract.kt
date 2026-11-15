@@ -35,6 +35,11 @@ object BridgeContract {
         const val GET_SPOTIFY_SYNC_STATUS = "getSpotifySyncStatus"
         const val RETRY_SPOTIFY_SYNC = "retrySpotifySync"
 
+        const val OPEN_BATTERY_SETTINGS = "openBatterySettings"
+        const val DISMISS_LISTENING_INTERRUPTION = "dismissListeningInterruption"
+        const val REQUEST_ADD_TILE = "requestAddTile"
+        const val TAKE_LAUNCH_SONG_ID = "takeLaunchSongId"
+
         // Part of the published contract but implemented in later phases.
         // They answer with NOT_IMPLEMENTED instead of failing silently.
         const val GET_RECOGNITION_SETTINGS = "getRecognitionSettings"
@@ -54,6 +59,7 @@ object BridgeContract {
         const val SONG_RECOGNIZED = "song_recognized"
         const val HISTORY_CHANGED = "history_changed"
         const val SPOTIFY_STATUS = "spotify_status"
+        const val OPEN_SONG = "open_song"
     }
 }
 

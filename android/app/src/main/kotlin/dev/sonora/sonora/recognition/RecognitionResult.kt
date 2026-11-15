@@ -44,6 +44,12 @@ sealed interface RecognitionOutcome {
 
     data object NoMatch : RecognitionOutcome
 
+    /**
+     * A 40–49 score: too weak to accept, but ambient listening holds it so a
+     * second agreeing sample can confirm it. Manual recognition treats it as [NoMatch].
+     */
+    data class Tentative(val song: RecognizedSong) : RecognitionOutcome
+
     /** [code] is one of [RecognitionErrorCodes]. */
     data class Failure(val code: String, val message: String) : RecognitionOutcome
 }

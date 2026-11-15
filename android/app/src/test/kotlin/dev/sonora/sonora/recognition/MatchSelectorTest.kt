@@ -86,6 +86,16 @@ class MatchSelectorTest {
     }
 
     @Test
+    fun `40 to 49 is tentative, below 40 is nothing (Wo Noor heard at 43)`() {
+        val heard = listOf(candidate("Wo Noor", "AP Dhillon", 43), candidate("Other", "X", 30))
+        assertNull(MatchSelector.choose(heard))
+        assertEquals("Wo Noor", MatchSelector.tentative(heard)!!.title)
+        assertNull(MatchSelector.tentative(listOf(candidate("A", "B", 39))))
+        assertNull(MatchSelector.tentative(listOf(candidate("A", "B", 55))))
+        assertNull(MatchSelector.tentative(listOf(candidate("A", "B", null))))
+    }
+
+    @Test
     fun `a second sample confirms only the same title and first artist`() {
         val first = song("God's Plan", "Drake")
         assertTrue(MatchSelector.confirms(first, song("GOD'S PLAN!", "DRAKE, Someone")))

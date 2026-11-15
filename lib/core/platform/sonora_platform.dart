@@ -166,6 +166,30 @@ class SonoraPlatform {
     return (data['retried'] as num?)?.toInt() ?? 0;
   }
 
+  /// Opens Sonora's app info, where One UI keeps the Battery setting.
+  Future<void> openBatterySettings() async {
+    await _invoke(BridgeMethods.openBatterySettings);
+  }
+
+  /// Clears the "listening was stopped" notice.
+  Future<ListeningStatus> dismissListeningInterruption() async =>
+      ListeningStatus.fromMap(
+        await _invoke(BridgeMethods.dismissListeningInterruption),
+      );
+
+  /// Asks Android to add the Quick Settings tile. Returns `added`,
+  /// `already_added`, `not_added`, `unavailable` or `unsupported`.
+  Future<String> requestAddTile() async {
+    final data = await _invoke(BridgeMethods.requestAddTile);
+    return data['result'] as String? ?? 'unavailable';
+  }
+
+  /// The song the notification opened the app for, once.
+  Future<int?> takeLaunchSongId() async {
+    final data = await _invoke(BridgeMethods.takeLaunchSongId);
+    return (data['songId'] as num?)?.toInt();
+  }
+
   /// Broadcast stream of native events; safe to listen to more than once.
   Stream<SonoraEvent> get events => _events ??= _eventsChannel
       .receiveBroadcastStream()

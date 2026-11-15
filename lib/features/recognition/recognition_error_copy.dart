@@ -26,6 +26,8 @@ String? recognitionErrorDetail(String? code) => switch (code) {
   'SPOTIFY_RATE_LIMITED' =>
     'Spotify is limiting requests. Try again in a minute.',
   'SPOTIFY_TRACK_NOT_FOUND' => "Couldn't find this song on Spotify.",
+  'SPOTIFY_PLAYLIST_NOT_FOUND' =>
+    'That playlist no longer exists on Spotify. Choose another playlist.',
   'SPOTIFY_API_ERROR' => 'Spotify returned an error. Try again later.',
   final other => 'Error code: $other',
 };

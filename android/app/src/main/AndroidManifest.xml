@@ -52,6 +52,31 @@
             android:name=".services.SonoraRecognitionService"
             android:exported="false"
             android:foregroundServiceType="microphone" />
+        <!-- Quick Settings tile (Phase 7). Starting goes through StartListeningActivity
+             because Android only starts microphone services from a visible app. -->
+        <service
+            android:name=".services.ListeningTileService"
+            android:exported="true"
+            android:icon="@drawable/ic_stat_sonora"
+            android:label="Sonora"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.service.quicksettings.TOGGLEABLE_TILE"
+                android:value="true" />
+        </service>
+        <activity
+            android:name=".services.StartListeningActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:noHistory="true"
+            android:taskAffinity=""
+            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+        <receiver
+            android:name=".notifications.SaveToPlaylistReceiver"
+            android:exported="false" />
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
         <meta-data

@@ -1,6 +1,8 @@
 package dev.sonora.sonora.bridge
 
+import android.app.StatusBarManager
 import android.content.ActivityNotFoundException
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -8,6 +10,8 @@ import android.net.Uri
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
+import android.provider.Settings
+import android.graphics.drawable.Icon
 import android.util.Log
 import dev.sonora.sonora.audio.AudioCaptureManager
 import dev.sonora.sonora.database.HistoryRepository
@@ -16,6 +20,9 @@ import dev.sonora.sonora.recognition.RecognitionErrorCodes
 import dev.sonora.sonora.recognition.RecognitionManager
 import dev.sonora.sonora.recognition.RecognitionOutcome
 import dev.sonora.sonora.recognition.SpotifyLinks
+import dev.sonora.sonora.R
+import dev.sonora.sonora.services.ListeningRecovery
+import dev.sonora.sonora.services.ListeningTileService
 import dev.sonora.sonora.services.ServiceStateManager
 import dev.sonora.sonora.spotify.SpotifyException
 import dev.sonora.sonora.spotify.SpotifyManager
@@ -65,7 +72,19 @@ class SonoraMethodChannel(
                     result.success(BridgeResponse.success(platformInfo()))
 
                 BridgeContract.Methods.GET_LISTENING_STATUS ->
-                    result.success(BridgeResponse.success(ServiceStateManager.snapshot.toMap()))
+                    result.success(BridgeResponse.success(listeningStatus()))
+
+                BridgeContract.Methods.DISMISS_LISTENING_INTERRUPTION -> {
+                    ListeningRecovery.markStopped(context)
+                    result.success(BridgeResponse.success(listeningStatus()))
+                }
+
+                BridgeContract.Methods.OPEN_BATTERY_SETTINGS -> result.success(openBatterySettings())
+
+                BridgeContract.Methods.REQUEST_ADD_TILE -> requestAddTile(result)
+
+                BridgeContract.Methods.TAKE_LAUNCH_SONG_ID ->
+                    result.success(BridgeResponse.success(mapOf("songId" to LaunchRequests.take())))
 
                 BridgeContract.Methods.START_LISTENING -> result.success(startListening())
 
@@ -266,6 +285,46 @@ class SonoraMethodChannel(
         permissions.requestPermissions { statuses -> result.success(BridgeResponse.success(statuses)) }
     }
 
+    /** Service state plus things only the app needs: interruption and battery setting. */
+    private fun listeningStatus(): Map<String, Any?> = ServiceStateManager.snapshot.toMap() + mapOf(
+        "interrupted" to ListeningRecovery.wasInterrupted(context),
+        "batteryUnrestricted" to ListeningRecovery.batteryUnrestricted(context),
+    )
+
+    /** App info, where One UI keeps the Battery (Unrestricted / Optimised / Restricted) setting. */
+    private fun openBatterySettings(): Map<String, Any?> = try {
+        context.startActivity(
+            Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", context.packageName, null))
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+        )
+        BridgeResponse.success()
+    } catch (e: ActivityNotFoundException) {
+        BridgeResponse.failure(NO_APP, "Couldn't open settings.")
+    }
+
+    /** Android 13+ asks the user to add the tile; older versions need manual editing of Quick Settings. */
+    private fun requestAddTile(result: MethodChannel.Result) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
+            result.success(BridgeResponse.success(mapOf("result" to "unsupported")))
+            return
+        }
+        val statusBar = context.getSystemService(StatusBarManager::class.java)
+        statusBar.requestAddTileService(
+            ComponentName(context, ListeningTileService::class.java),
+            "Sonora",
+            Icon.createWithResource(context, R.drawable.ic_stat_sonora),
+            { mainHandler.post(it) },
+        ) { code ->
+            val outcome = when (code) {
+                StatusBarManager.TILE_ADD_REQUEST_RESULT_TILE_ADDED -> "added"
+                StatusBarManager.TILE_ADD_REQUEST_RESULT_TILE_ALREADY_ADDED -> "already_added"
+                StatusBarManager.TILE_ADD_REQUEST_RESULT_TILE_NOT_ADDED -> "not_added"
+                else -> "unavailable"
+            }
+            result.success(BridgeResponse.success(mapOf("result" to outcome)))
+        }
+    }
+
     private fun startListening(): Map<String, Any?> = when {
         !recognition.hasMicrophonePermission ->
             BridgeResponse.failure(AudioCaptureManager.PERMISSION_REQUIRED, "Microphone permission not granted.")
@@ -289,7 +348,7 @@ class SonoraMethodChannel(
                         "elapsedMs" to elapsedMs,
                     ),
                 )
-                RecognitionOutcome.NoMatch -> BridgeResponse.success(
+                RecognitionOutcome.NoMatch, is RecognitionOutcome.Tentative -> BridgeResponse.success(
                     mapOf("matched" to false, "song" to null, "elapsedMs" to elapsedMs),
                 )
                 is RecognitionOutcome.Failure -> BridgeResponse.failure(outcome.code, outcome.message)

@@ -16,7 +16,7 @@ class ListeningPolicyTest {
     @Test
     fun `after a match waits for the rest of the song`() {
         // 3:30 song, matched 60 s in: 210 - 60 - 10 (sample) + 5 (margin) = 145 s.
-        assertEquals(145_000L, ListeningPolicy.delayAfterMatch(durationMs = 210_000, playOffsetMs = 60_000))
+        assertEquals(143_000L, ListeningPolicy.delayAfterMatch(durationMs = 210_000, playOffsetMs = 60_000))
     }
 
     @Test

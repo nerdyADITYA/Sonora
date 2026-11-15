@@ -42,6 +42,13 @@ class SpotifyManager private constructor(context: Context) {
         )
     }
 
+    /** The remembered playlist as (id, name), when connected. */
+    fun defaultPlaylist(): Pair<String, String>? {
+        if (!auth.isSignedIn) return null
+        val id = prefs.getString(KEY_PLAYLIST_ID, null) ?: return null
+        return id to (prefs.getString(KEY_PLAYLIST_NAME, null) ?: "your playlist")
+    }
+
     fun beginSignIn(): String = auth.beginSignIn()
 
     /** Finishes sign-in from the redirect and records who signed in. */
@@ -110,6 +117,8 @@ class SpotifyManager private constructor(context: Context) {
         if (!auth.isSignedIn) return 0
         var done = 0
         for (item in queue.retryable(PROVIDER, MAX_ATTEMPTS)) {
+            // Retrying can't bring back a deleted playlist.
+            if (item.lastError == SpotifyErrorCodes.PLAYLIST_NOT_FOUND) continue
             try {
                 push(item.id, item.playlistId, item.trackUri)
                 done++
@@ -176,8 +185,26 @@ class SpotifyManager private constructor(context: Context) {
             AddResult.ADDED
         }
     } catch (e: SpotifyException) {
-        queue.markFailed(queueId, e.code)
-        throw e
+        // A 404 here means the playlist itself is gone (deleted, or no longer
+        // shared); the track ID came from Spotify's own search.
+        val error = if (e.httpStatus == 404) playlistGone(playlistId) else e
+        queue.markFailed(queueId, error.code)
+        throw error
+    }
+
+    /** Forgets a default playlist that no longer exists, so the app asks for a new one. */
+    private fun playlistGone(playlistId: String): SpotifyException {
+        val name = prefs.getString(KEY_PLAYLIST_NAME, null)
+        if (prefs.getString(KEY_PLAYLIST_ID, null) == playlistId) {
+            prefs.edit().remove(KEY_PLAYLIST_ID).remove(KEY_PLAYLIST_NAME).apply()
+            publish()
+        }
+        val label = name?.let { "\"$it\"" } ?: "That playlist"
+        return SpotifyException(
+            SpotifyErrorCodes.PLAYLIST_NOT_FOUND,
+            "$label no longer exists on Spotify. Choose another playlist in Sonora.",
+            404,
+        )
     }
 
     private fun userId(): String = prefs.getString(KEY_USER_ID, null)

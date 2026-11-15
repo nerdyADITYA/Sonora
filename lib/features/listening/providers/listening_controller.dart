@@ -101,6 +101,25 @@ class ListeningController extends Notifier<ListeningState> {
     }
   }
 
+  /// Hides the "listening was stopped" notice without restarting.
+  Future<void> dismissInterruption() async {
+    try {
+      state = state.copyWith(
+        status: await _platform.dismissListeningInterruption(),
+      );
+    } on PlatformFailure {
+      // Shown again next time; harmless.
+    }
+  }
+
+  Future<void> openBatterySettings() async {
+    try {
+      await _platform.openBatterySettings();
+    } on PlatformFailure {
+      // Nothing to open; the copy still explains where the setting is.
+    }
+  }
+
   Future<void> stop() async {
     if (state.toggling) return;
     state = state.copyWith(toggling: true, clearStartError: true);

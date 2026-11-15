@@ -32,6 +32,9 @@ class ListeningStatus {
     this.dailyBudget = 0,
     this.lastSong,
     this.lastError,
+    this.powerSave = false,
+    this.interrupted = false,
+    this.batteryUnrestricted = true,
   });
 
   factory ListeningStatus.fromMap(Map<String, Object?> map) {
@@ -50,6 +53,9 @@ class ListeningStatus {
           ? RecognizedSong.fromMap(song.cast<String, Object?>())
           : null,
       lastError: map['lastError'] as String?,
+      powerSave: map['powerSave'] as bool? ?? false,
+      interrupted: map['interrupted'] as bool? ?? false,
+      batteryUnrestricted: map['batteryUnrestricted'] as bool? ?? true,
     );
   }
 
@@ -67,4 +73,14 @@ class ListeningStatus {
 
   /// Error code from the last cycle or from a failed start, if any.
   final String? lastError;
+
+  /// Battery saver is on, so idle checks are spaced out.
+  final bool powerSave;
+
+  /// Android or One UI ended listening without the user stopping it.
+  final bool interrupted;
+
+  /// Battery usage is "Unrestricted", so One UI won't put Sonora to sleep.
+  /// Only reported by `getListeningStatus`.
+  final bool batteryUnrestricted;
 }
