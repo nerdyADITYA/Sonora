@@ -48,6 +48,17 @@ Without these steps the app still builds, but **Identify song** reports `PROVIDE
 
 Keys from `local.properties` are compiled into **debug builds only**; release builds never contain a key. Keys entered in Settings take priority and are stored encrypted on the phone. Still, don't share debug APKs built with your keys.
 
+## Spotify (optional)
+
+Without a Client ID the app works, but Settings shows that Spotify isn't configured.
+
+1. In the [Spotify developer dashboard](https://developer.spotify.com/dashboard), create an app with the Web API and the redirect URI `sonora://spotify-callback`.
+2. Put its Client ID in `android/local.properties` (git-ignored). Sonora uses PKCE, so no client secret is needed or used:
+   ```properties
+   spotify.clientId=...
+   ```
+3. While the app is in Development Mode, only accounts listed under **User Management** can connect. Others get a "Spotify refused the request" error.
+
 ## Running on the Galaxy S24 Ultra
 
 1. Settings → About phone → Software information → tap *Build number* 7 times.

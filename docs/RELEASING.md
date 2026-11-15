@@ -62,7 +62,9 @@ An APK signed with your key can't be installed over a debug build, because the s
 
 ## Publishing
 
-Sonora releases are **source-only**. The ACRCloud SDK has no published licence allowing redistribution, so APKs that contain it aren't attached to GitHub releases.
+From v0.9.0 the signed release APK is attached to GitHub releases. v0.8.0 was source-only. The APK contains the ACRCloud SDK, which has no published licence, so keep checking that ACRCloud allows redistributing it, and remove the APK if they object.
 
-1. Tag the commit: `git tag -a v0.8.0 -m "Sonora v0.8.0 beta"`, then `git push origin v0.8.0`.
+1. Tag the commit: `git tag -a v0.9.0 -m "Sonora v0.9.0 beta"`, then `git push origin v0.9.0`.
 2. On GitHub, go to Releases › Draft a new release, pick the tag, paste that version's CHANGELOG section, and tick **Set as a pre-release** for betas.
+3. Attach `app-release.apk`. GitHub shows its SHA-256 next to the file; it must match `sha256sum` of your local build.
+4. The APK carries the maintainer's Spotify Client ID. While that Spotify app is in Development Mode, only accounts added under User Management in the Spotify dashboard can connect.
